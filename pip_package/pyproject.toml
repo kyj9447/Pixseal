@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "Pixseal"
 version = "0.1.0"
 description = "Encrypted Image Watermark Injector / Validator"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "cryptography>=41.0.0",
