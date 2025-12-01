@@ -129,5 +129,6 @@ string argument should contain only ASCII characters
 ```
 ## Related projects
 
-- Mobile camera that signs images on capture: https://github.com/kyj9447/imageSignerCamera
+https://github.com/kyj9447/imageSignerCamera
+- Mobile camera that signs images on capture: 
 - Server-side validator that decrypts and verifies payloads.
