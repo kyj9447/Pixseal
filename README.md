@@ -1,6 +1,7 @@
 # Pixseal
 
 Encrypted image watermark injector/validator that hides text (optionally RSA encrypted) inside 24-bit PNG or BMP files by modulating the parity of carefully selected color channels.
+- GitHub: https://github.com/kyj9447/imageSignerCamera
 
 ## Features
 
@@ -99,19 +100,33 @@ Point `publicKeyPath` / `privKeyPath` to these files.
 
 | Original | Signed (`!Validation:kyj9447@mailmail.com`) |
 | --- | --- |
-| <img src="./original.png" width="400px"/> | <img src="./signed_original.png" width="400px"/> |
+| <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/original.png" width="400px"/> | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/signed_original.png" width="400px"/> |
 
 Validation output excerpt:
 
 ```
-START-VALIDATION
-!Validation:kyj9447@mailmail.com
-undecrypted partial String
-END-VALIDATION
+[Validate] verdict: True
+[Validate] extracted string: !Validation:kyj9447@mailmail.com
+[Validate] decrypted with private key: SSL/private_key.pem
 ```
 
 (When encrypted, each line appears as Base64 until decrypted with the RSA private key.)
 
+| Currupted after signing |
+| --- |
+|<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/currupted_signed_original.png" width="400px"/>
+
+Validation output excerpt:
+
+```
+...
+string argument should contain only ASCII characters
+string argument should contain only ASCII characters
+string argument should contain only ASCII characters
+[Validate] verdict: False
+[Validate] extracted string: !Validation:kyj9447@mailmail.com
+[Validate] decrypted with private key: SSL/private_key.pem
+```
 ## Related projects
 
 - Mobile camera that signs images on capture: https://github.com/kyj9447/imageSignerCamera
