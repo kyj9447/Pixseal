@@ -99,13 +99,14 @@ Point `publicKeyPath` / `privKeyPath` to these files.
 
 | Original | Signed (`!Validation:kyj9447@mailmail.com`) |
 | --- | --- |
-| ![Original](https://github.com/kyj9447/imageNoiserAndValidator/blob/main/original.png) | ![Signed](https://github.com/kyj9447/imageNoiserAndValidator/blob/main/signed_original.png) |
+| <img src="./original.png" width="400px"/> | <img src="./signed_original.png" width="400px"/> |
 
 Validation output excerpt:
 
 ```
 START-VALIDATION
 !Validation:kyj9447@mailmail.com
+undecrypted partial String
 END-VALIDATION
 ```
 
