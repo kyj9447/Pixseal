@@ -52,12 +52,21 @@ def deduplicate(arr):
             deduplicated.append(arr[i])
     return deduplicated
 
-def buildValidationReport(decrypted, skipPlain=False):
+def tailCheck(arr: list[str]):
+    if len(arr) != 4:
+        return None # Not required
+
+    full_cipher = arr[1]       # complete ciphertext
+    truncated_cipher = arr[2]  # incomplete ciphertext
+
+    return full_cipher.startswith(truncated_cipher)
+
+def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
     # Length after deduplication/decryption
     arrayLength = len(decrypted)
 
     # 1. Check that the deduplicated sequence length is valid
-    lengthCheck = True if arrayLength == 3 or arrayLength == 4 else False
+    lengthCheck = arrayLength in (3, 4)
 
     # 2. Validate start/end markers
     startCheck = decrypted[0] == "START-VALIDATION" if decrypted else False
@@ -67,8 +76,16 @@ def buildValidationReport(decrypted, skipPlain=False):
     decryptedPayload = decrypted[1] if len(decrypted) > 1 else ""
     isDecrypted = bool(decryptedPayload) and not decryptedPayload.endswith("==")
 
+    checkList = [lengthCheck, startCheck, endCheck, isDecrypted]
+    # 5. Parse tailCheck result
+    if tailCheck is None:
+        tailCheckResult = 'Not Required'
+    else :
+        tailCheckResult = tailCheck
+        checkList.append(tailCheckResult)
+
     # Overall verdict requires every check to pass
-    verdict = all([lengthCheck, startCheck, endCheck, isDecrypted])
+    verdict = all(checkList)
 
     result = {
         "arrayLength": arrayLength,
@@ -76,10 +93,13 @@ def buildValidationReport(decrypted, skipPlain=False):
         "startCheck": startCheck,
         "endCheck": endCheck,
         "isDecrypted": isDecrypted,
+        "tailCheckResult": tailCheckResult,
         "verdict": verdict
     }
+
     if skipPlain:
         result["decryptSkipMessage"] = "Skip decrypt: payload was plain text despite decrypt request."
+
     return result
 
 def decrypt_array(deduplicated, privKeyPath):
@@ -91,7 +111,7 @@ def decrypt_array(deduplicated, privKeyPath):
         )
 
     decrypted = []
-    skipped_plain = False
+    skippedPlain = False
     for item in deduplicated:
         if item.endswith("=="):
             try:
@@ -107,13 +127,13 @@ def decrypt_array(deduplicated, privKeyPath):
                 decrypted.append(plain_bytes.decode("utf-8"))
             except Exception as exc:
                 print(exc)
-                skipped_plain = True
+                skippedPlain = True
                 decrypted.append(item)
         else:
-            skipped_plain = True
+            skippedPlain = True
             decrypted.append(item)
 
-    return decrypted, skipped_plain
+    return decrypted, skippedPlain
 
 # main
 def validateImage(imagePath, privKeyPath = None):
@@ -123,12 +143,12 @@ def validateImage(imagePath, privKeyPath = None):
     deduplicated = deduplicate(splited)
 
     if privKeyPath:
-        decrypted, skipped_plain = decrypt_array(deduplicated,privKeyPath)
+        decrypted, skippedPlain = decrypt_array(deduplicated,privKeyPath)
     else :
         decrypted = deduplicated
-        skipped_plain = False
+        skippedPlain = False
 
-    report = buildValidationReport(decrypted, skipped_plain)
+    report = buildValidationReport(decrypted, skippedPlain, tailCheck(deduplicated))
     return {
         "extractedString": decrypted[1],
         "validationReport": report
