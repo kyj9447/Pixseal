@@ -7,6 +7,32 @@ from pip_package.Pixseal import signImage, validateImage
 DEFAULT_PUBLIC_KEY = "SSL/public_key.pem"
 DEFAULT_PRIVATE_KEY = "SSL/private_key.pem"
 
+def shorten(seq, max_items=6):
+    if len(seq) <= max_items:
+        return seq
+    head = seq[:2]
+    tail = seq[-2:]
+    return head + ["..."] + tail
+
+def truncate_decrypted_entries(result):
+    decrypted = result.get("decrypted", [])
+    if not decrypted:
+        return
+    most_common = result.get("extractedString")
+    if not most_common:
+        return
+    max_len = len(most_common)
+    truncated = []
+    for value in decrypted:
+        if value in ("START-VALIDATION", "END-VALIDATION") or value == most_common:
+            truncated.append(value)
+            continue
+        if len(value) > max_len:
+            truncated.append(value[:max_len] + "...")
+        else:
+            truncated.append(value)
+    result["decrypted"] = shorten(truncated)
+
 def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
     payload = payload or "!Validation:kyj9447@mailmail.com"
     output = Path("signed_" + Path(image).name)
@@ -27,10 +53,10 @@ def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
         selected_key = str(DEFAULT_PRIVATE_KEY)
 
     result = validateImage(image, selected_key)
+    truncate_decrypted_entries(result)
     report = result["validationReport"]
-    extracted = result.get("extractedString1", "")
     print("[Validate] verdict:", report["verdict"])
-    print("[Validate] extracted string:", extracted)
+    print("[Validate] extracted string:", result.get("extractedString"))
     if selected_key:
         print(f"[Validate] decrypted with private key: {selected_key}")
     else:
@@ -53,10 +79,10 @@ def file_roundtrip_demo(
 
     print("[PathTest] Validating using file path input...")
     path_result = validateImage(str(output), str(private_key))
+    truncate_decrypted_entries(path_result)
     path_report = path_result["validationReport"]
-    path_payload = path_result.get("extractedString1")
     print("[PathTest] verdict:", path_report["verdict"])
-    print("[PathTest] extracted:", path_payload)
+    print("[PathTest] extracted:", path_result.get("extractedString"))
     pprint(path_result)
 
 def memory_roundtrip_demo(
@@ -78,11 +104,11 @@ def memory_roundtrip_demo(
     print("[Memory] Validating using in-memory bytes...")
     signed_bytes = bytes_output.read_bytes()
     result = validateImage(signed_bytes, str(private_key))
+    truncate_decrypted_entries(result)
     report = result["validationReport"]
-    extracted = result.get("extractedString1")
 
     print("[Memory] (bytes) verdict:", report["verdict"])
-    print("[Memory] (bytes) extracted string:", extracted)
+    print("[Memory] (bytes) extracted string:", result.get("extractedString"))
     pprint(result)
 
 def _prompt_bool(message, default=False):

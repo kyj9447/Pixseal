@@ -47,10 +47,20 @@ def readHiddenBit(imageInput: ImageInput):
 
 def deduplicate(arr):
     deduplicated = []
-    for i in range(len(arr)):
-        if i == 0 or arr[i] != arr[i-1]:
-            deduplicated.append(arr[i])
-    return deduplicated
+    freq = {}
+    most_common = None
+    most_count = 0
+
+    for i, value in enumerate(arr):
+        freq[value] = freq.get(value, 0) + 1
+        if freq[value] > most_count:
+            most_count = freq[value]
+            most_common = value
+
+        if i == 0 or value != arr[i - 1]:
+            deduplicated.append(value)
+
+    return deduplicated, most_common
 
 def tailCheck(arr: list[str]):
     if len(arr) != 4:
@@ -147,7 +157,7 @@ def validateImage(imageInput: ImageInput, privKeyPath = None):
     resultBinary = readHiddenBit(imageInput)
     resultString = binaryToString(resultBinary)
     splited = resultString.split("\n")
-    deduplicated = deduplicate(splited)
+    deduplicated, most_common = deduplicate(splited)
 
     if privKeyPath:
         decrypted, skippedPlain = decrypt_array(deduplicated,privKeyPath)
@@ -157,13 +167,8 @@ def validateImage(imageInput: ImageInput, privKeyPath = None):
 
     report = buildValidationReport(decrypted=decrypted, tailCheck=tailCheck(deduplicated), skipPlain=skippedPlain )
     
-    extractedString1 = decrypted[1]
-    extractedString2 = decrypted[2]
-    if len(decrypted[2]) > len(decrypted[1]):
-        extractedString2 = decrypted[2][:len(decrypted[1])] + "..."
-    
     return {
-        "extractedString1": extractedString1,
-        "extractedString2": extractedString2,
+        "extractedString":decrypt_array({most_common},privKeyPath)[0][0],
+        "decrypted": decrypted,
         "validationReport": report
     }
