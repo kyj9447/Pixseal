@@ -112,6 +112,18 @@ Validation output excerpt:
 [Validate] verdict: True
 [Validate] extracted string: !Validation:kyj9447@mailmail.com
 [Validate] decrypted with private key: SSL/private_key.pem
+
+Validation Report
+
+{'extractedString1': '!Validation:kyj9447@mailmail.com',
+ 'extractedString2': 'DMnWAzbd6NFycGAxcPkzzmGjL33WXovG...',
+ 'validationReport': {'arrayLength': 4,
+                      'endCheck': True,
+                      'isDecrypted': True,
+                      'lengthCheck': True,
+                      'startCheck': True,
+                      'tailCheckResult': True,
+                      'verdict': True}}
 ```
 
 (When encrypted, each line appears as Base64 until decrypted with the RSA private key.)
@@ -130,6 +142,21 @@ string argument should contain only ASCII characters
 [Validate] verdict: False
 [Validate] extracted string: !Validation:kyj9447@mailmail.com
 [Validate] decrypted with private key: SSL/private_key.pem
+
+Validation Report
+
+{'extractedString1': '!Validation:kyj9447@mailmail.com',
+ 'extractedString2': 'hh78IWEsRgfTWMw3Rg02hTnCdErjx0O4...',
+ 'validationReport': {'arrayLength': 400,
+                      'decryptSkipMessage': 'Skip decrypt: payload was plain '
+                                            'or corrupted text despite decrypt '
+                                            'request.',
+                      'endCheck': True,
+                      'isDecrypted': True,
+                      'lengthCheck': False,
+                      'startCheck': True,
+                      'tailCheckResult': 'Not Required',
+                      'verdict': False}}
 ```
 ## Related projects
 

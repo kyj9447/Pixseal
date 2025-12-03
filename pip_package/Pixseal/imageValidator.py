@@ -98,7 +98,7 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
     }
 
     if skipPlain:
-        result["decryptSkipMessage"] = "Skip decrypt: payload was plain text despite decrypt request."
+        result["decryptSkipMessage"] = "Skip decrypt: payload was plain or corrupted text despite decrypt request."
 
     return result
 
@@ -111,7 +111,8 @@ def decrypt_array(deduplicated, privKeyPath):
         )
 
     decrypted = []
-    skippedPlain = False
+    skippedPlainCount = 0
+    decryptError = False
     for item in deduplicated:
         if item.endswith("=="):
             try:
@@ -127,11 +128,17 @@ def decrypt_array(deduplicated, privKeyPath):
                 decrypted.append(plain_bytes.decode("utf-8"))
             except Exception as exc:
                 print(exc)
+                decryptError = True
                 decrypted.append(item)
         else:
-            if item != deduplicated[2]:
-                skippedPlain = True
+            skippedPlainCount += 1
             decrypted.append(item)
+
+    expectedPlainCount = 0
+    if len(deduplicated) == 4:
+        expectedPlainCount = 1
+
+    skippedPlain = decryptError or skippedPlainCount != expectedPlainCount
 
     return decrypted, skippedPlain
 
