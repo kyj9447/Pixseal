@@ -5,10 +5,16 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from .simpleImage import ImageInput, SimpleImage
 
+
 class BinaryProvider:
 
     # Constructor
-    def __init__(self, hiddenString, startString = "START-VALIDATION\n", endString="\nEND-VALIDATION"):
+    def __init__(
+        self,
+        hiddenString,
+        startString="START-VALIDATION\n",
+        endString="\nEND-VALIDATION",
+    ):
         self.hiddenBinary = self.strToBinary(hiddenString)
         self.hiddenBinaryIndex = 0
         self.hiddenBinaryIndexMax = len(self.hiddenBinary)
@@ -21,27 +27,27 @@ class BinaryProvider:
         # End sentinel
         self.endBinary = self.strToBinary(endString)
         # End bits are written in reverse from the tail
-        self.endBinaryIndex = len(self.endBinary)-1
+        self.endBinaryIndex = len(self.endBinary) - 1
         self.endBinaryIndexMin = 0
 
     # Convert string to contiguous binary digits
     def strToBinary(self, string):
         # Prepare an empty list for characters
         binaries = []
-        
+
         # Iterate over each character
         for char in string:
             # Convert character to 8-bit binary and append
             binaries.append(bin(ord(char))[2:].zfill(8))
-            
+
         # Join into a single string
-        return ''.join(binaries)
+        return "".join(binaries)
 
     # Retrieve the next bit, emitting the start sentinel before payload
     def nextBit(self):
 
         # After the start sentinel, consume payload bits
-        if self.startBinaryIndex == self.startBinaryIndexMax:    
+        if self.startBinaryIndex == self.startBinaryIndexMax:
             # Loop payload bits when the end is reached
             if self.hiddenBinaryIndex >= self.hiddenBinaryIndexMax:
                 self.hiddenBinaryIndex = 0
@@ -61,7 +67,7 @@ class BinaryProvider:
             self.startBinaryIndex += 1
 
         return int(bit)
-    
+
     # Retrieve the next end sentinel bit in reverse order
     def nextEnd(self):
         # End sentinel complete when we reach the lower bound
@@ -75,6 +81,7 @@ class BinaryProvider:
         self.endBinaryIndex -= 1
 
         return int(bit)
+
 
 def addHiddenBit(imageInput: ImageInput, hiddenBinary):
     img = SimpleImage.open(imageInput)
@@ -109,13 +116,13 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
             maxDiff = diffB
 
         # Actual value of that channel
-        if maxDiff == diffR: 
+        if maxDiff == diffR:
             targetColorValue = r
         elif maxDiff == diffG:
             targetColorValue = g
         else:
-            targetColorValue = b 
-        
+            targetColorValue = b
+
         # Channels >=127 are decremented, <127 incremented
         addDirection = 1 if targetColorValue < 127 else -1
 
@@ -135,17 +142,17 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
 
         # Write the updated pixel
         pixels[base] = r
-        pixels[base+1] = g
-        pixels[base+2] = b
+        pixels[base + 1] = g
+        pixels[base + 2] = b
 
     # Append the end sentinel starting from the last pixel
     for idx in reversed(range(total)):
         # Read the pixel
         base = idx * 3
         # Read the pixel
-        r = pixels[base]        
-        g = pixels[base+1]
-        b = pixels[base+2]
+        r = pixels[base]
+        g = pixels[base + 1]
+        b = pixels[base + 2]
 
         # Distance from 127
         diffR = r - 127
@@ -166,13 +173,13 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
             maxDiff = diffB
 
         # Actual value of that channel
-        if maxDiff == diffR: 
+        if maxDiff == diffR:
             targetColorValue = r
         elif maxDiff == diffG:
             targetColorValue = g
         else:
-            targetColorValue = b 
-        
+            targetColorValue = b
+
         # Direction to adjust
         addDirection = 1 if targetColorValue < 127 else -1
 
@@ -194,8 +201,8 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
 
         # Persist the adjustment
         pixels[base] = r
-        pixels[base+1] = g
-        pixels[base+2] = b
+        pixels[base + 1] = g
+        pixels[base + 2] = b
 
         if bit is None:
             break
@@ -203,8 +210,9 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
     # Return the modified image
     return img
 
+
 def stringCryptor(plaintext: str, public_key) -> str:
-    
+
     ciphertext = public_key.encrypt(
         plaintext.encode("utf-8"),
         padding.OAEP(
@@ -216,11 +224,12 @@ def stringCryptor(plaintext: str, public_key) -> str:
 
     return base64.b64encode(ciphertext).decode("ascii")
 
+
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
-def signImage(imageInput: ImageInput, hiddenString, publicKeyPath = None) :
+def signImage(imageInput: ImageInput, hiddenString, publicKeyPath=None):
 
-    if publicKeyPath : # When encryption key is supplied
+    if publicKeyPath:  # When encryption key is supplied
         key_path = Path(publicKeyPath)
         if not key_path.is_file():
             raise FileNotFoundError(f"Public key file not found: {publicKeyPath}")
@@ -230,14 +239,14 @@ def signImage(imageInput: ImageInput, hiddenString, publicKeyPath = None) :
             raise ValueError("Provided file does not contain a valid public key")
 
         public_key = serialization.load_pem_public_key(pem_data)
-            
+
         hiddenBinary = BinaryProvider(
-            hiddenString = stringCryptor(hiddenString,public_key)+"\n", 
-            startString = stringCryptor("START-VALIDATION",public_key)+"\n", 
-            endString="\n"+stringCryptor("END-VALIDATION",public_key)
-            )
-        
-    else : # Plain-text payload
+            hiddenString=stringCryptor(hiddenString, public_key) + "\n",
+            startString=stringCryptor("START-VALIDATION", public_key) + "\n",
+            endString="\n" + stringCryptor("END-VALIDATION", public_key),
+        )
+
+    else:  # Plain-text payload
         hiddenBinary = BinaryProvider(hiddenString + "\n")
 
     signedImage = addHiddenBit(imageInput, hiddenBinary)
