@@ -77,97 +77,125 @@ class BinaryProvider:
         return int(bit)
 
 def addHiddenBit(imageInput: ImageInput, hiddenBinary):
-    # Open the image
     img = SimpleImage.open(imageInput)
-
-    # Retrieve dimensions
     width, height = img.size
+    pixels = img._pixels  # direct buffer access for performance
+    total = width * height
 
     # Iterate over every pixel and inject one bit
-    for y in range(height):
-        for x in range(width):
-            # Read the pixel
-            r, g, b = img.getPixel((x, y))
+    for idx in range(total):
+        base = idx * 3
+        # Read the pixel
+        r = pixels[base]
+        g = pixels[base + 1]
+        b = pixels[base + 2]
 
-            # Calculate the distance from 127
-            diffR = abs(r - 127)
-            diffG = abs(g - 127)
-            diffB = abs(b - 127)
+        # Calculate the distance from 127
+        diffR = r - 127
+        if diffR < 0:
+            diffR = -diffR
+        diffG = g - 127
+        if diffG < 0:
+            diffG = -diffG
+        diffB = b - 127
+        if diffB < 0:
+            diffB = -diffB
 
-            # Pick the component farthest from 127
-            maxDiff = max(diffR, diffG, diffB)
+        # Pick the component farthest from 127
+        maxDiff = diffR
+        if diffG > maxDiff:
+            maxDiff = diffG
+        if diffB > maxDiff:
+            maxDiff = diffB
 
-            # Actual value of that channel
-            if maxDiff == diffR: 
-                targetColorValue = r
-            elif maxDiff == diffG:
-                targetColorValue = g
-            else:
-                targetColorValue = b 
-            
-            # Channels >=127 are decremented, <127 incremented
-            addDirection = 1 if targetColorValue < 127 else -1
+        # Actual value of that channel
+        if maxDiff == diffR: 
+            targetColorValue = r
+        elif maxDiff == diffG:
+            targetColorValue = g
+        else:
+            targetColorValue = b 
+        
+        # Channels >=127 are decremented, <127 incremented
+        addDirection = 1 if targetColorValue < 127 else -1
 
-            # Pull next bit from provider
-            bit = hiddenBinary.nextBit()
+        # Pull next bit from provider
+        bit = hiddenBinary.nextBit()
 
-            # Force the selected channel parity to match the bit
-            if maxDiff == diffR:
-                if r % 2 != bit:
-                    r += addDirection
-            if maxDiff == diffG:
-                if g % 2 != bit:
-                    g += addDirection
-            if maxDiff == diffB:
-                if b % 2 != bit:
-                    b += addDirection
+        # Force the selected channel parity to match the bit
+        if maxDiff == diffR:
+            if r % 2 != bit:
+                r += addDirection
+        if maxDiff == diffG:
+            if g % 2 != bit:
+                g += addDirection
+        if maxDiff == diffB:
+            if b % 2 != bit:
+                b += addDirection
 
-            # Write the updated pixel
-            img.putPixel((x,y), (r, g, b))
+        # Write the updated pixel
+        pixels[base] = r
+        pixels[base+1] = g
+        pixels[base+2] = b
 
     # Append the end sentinel starting from the last pixel
-    for y in reversed(range(height)):
-        for x in reversed(range(width)):
-            # Read the pixel
-            r, g, b = img.getPixel((x, y))
+    for idx in reversed(range(total)):
+        # Read the pixel
+        base = idx * 3
+        # Read the pixel
+        r = pixels[base]        
+        g = pixels[base+1]
+        b = pixels[base+2]
 
-            # Distance from 127
-            diffR = abs(r - 127)
-            diffG = abs(g - 127)
-            diffB = abs(b - 127)
+        # Distance from 127
+        diffR = r - 127
+        if diffR < 0:
+            diffR = -diffR
+        diffG = g - 127
+        if diffG < 0:
+            diffG = -diffG
+        diffB = b - 127
+        if diffB < 0:
+            diffB = -diffB
 
-            # Select the farthest channel
-            maxDiff = max(diffR, diffG, diffB)
+        # Select the farthest channel
+        maxDiff = diffR
+        if diffG > maxDiff:
+            maxDiff = diffG
+        if diffB > maxDiff:
+            maxDiff = diffB
 
-            # Actual value of that channel
-            if maxDiff == diffR: 
-                targetColorValue = r
-            elif maxDiff == diffG:
-                targetColorValue = g
-            else:
-                targetColorValue = b 
-            
-            # Direction to adjust
-            addDirection = 1 if targetColorValue < 127 else -1
+        # Actual value of that channel
+        if maxDiff == diffR: 
+            targetColorValue = r
+        elif maxDiff == diffG:
+            targetColorValue = g
+        else:
+            targetColorValue = b 
+        
+        # Direction to adjust
+        addDirection = 1 if targetColorValue < 127 else -1
 
-            # End-bit provider
-            bit = hiddenBinary.nextEnd()
-            if bit is None:
-                break
+        # End-bit provider
+        bit = hiddenBinary.nextEnd()
+        if bit is None:
+            break
 
-            # Apply the parity tweak
-            if maxDiff == diffR:
-                if r % 2 != bit:
-                    r += addDirection
-            if maxDiff == diffG:
-                if g % 2 != bit:
-                    g += addDirection
-            if maxDiff == diffB:
-                if b % 2 != bit:
-                    b += addDirection
+        # Apply the parity tweak
+        if maxDiff == diffR:
+            if r % 2 != bit:
+                r += addDirection
+        if maxDiff == diffG:
+            if g % 2 != bit:
+                g += addDirection
+        if maxDiff == diffB:
+            if b % 2 != bit:
+                b += addDirection
 
-            # Persist the adjustment
-            img.putPixel((x,y), (r, g, b))
+        # Persist the adjustment
+        pixels[base] = r
+        pixels[base+1] = g
+        pixels[base+2] = b
 
         if bit is None:
             break
