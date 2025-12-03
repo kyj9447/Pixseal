@@ -49,7 +49,7 @@ report = validateImage(
     privKeyPath="SSL/private_key.pem",  # omit for plain-text payloads
 )
 
-print(report["extractedString"])
+print(report["extractedString1"])
 print(report["validationReport"])
 ```
 
@@ -57,13 +57,15 @@ print(report["validationReport"])
 
 ```python
 {
-    "extractedString": "<payload or encrypted blob>",
+    "extractedString1": "<payload or encrypted blob>",
+    "extractedString2": "<truncated payload or encrypted blob>",
     "validationReport": {
         "arrayLength": 4,
         "lengthCheck": True,
         "startCheck": True,
         "endCheck": True,
         "isDecrypted": True,
+        "tailCheckResult": True,
         "verdict": True,
         # decryptSkipMessage when a decrypt request was skipped
     }
@@ -76,7 +78,9 @@ print(report["validationReport"])
 
 1. Choose **1** to sign an image. It reads `original.png`, asks for a payload (default `!Validation:kyj9447@mailmail.com`), optionally encrypts with `SSL/public_key.pem`, and writes `signed_<name>.png`.
 2. Choose **2** to validate. It reads `signed_original.png`, optionally decrypts with `SSL/private_key.pem`, and prints both the extracted string and verdict.
-
+3. Choose **3** to benchmark performance. It reads `original.png`, encrypts it with `SSL/public_key.pem`, and writes `signed_original.png`, printing the elapsed signing time. Then it reads `signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
+4. Choose **4** to test signing and validation with file-path input option.
+5. Choose **5** to test signing and validation with byte-stream input option.
 ### Key management
 
 Generate a test RSA pair (PKCS#8) with OpenSSL:
@@ -94,8 +98,7 @@ Point `publicKeyPath` / `privKeyPath` to these files.
 | --- | --- |
 | `signImage(imageInput, hiddenString, publicKeyPath=None)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `hiddenString` plus sentinels, encrypting each chunk when `publicKeyPath` is provided. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
 | `validateImage(imageInput, privKeyPath=None)` | Reads the hidden bit stream from a path or raw bytes, splits by newlines, deduplicates, optionally decrypts each chunk (Base64 indicates ciphertext), and returns the payload plus a validation report. |
-| `SimpleImage.open(path_or_bytes)` | Low-level helper that exposes `size`, `getPixel`, `putPixel`, `save`, and `saveBmp`. Useful if you need custom preprocessing before/after signing. |
-| `BinaryProvider`, `addHiddenBit`, `readHiddenBit`, `buildValidationReport` | Lower-level primitives exported from `Pixseal` for advanced workflows or experimentation. |
+
 
 ## Examples
 
@@ -113,7 +116,7 @@ Validation output excerpt:
 
 (When encrypted, each line appears as Base64 until decrypted with the RSA private key.)
 
-| Currupted after signing |
+| Corrupted after signing |
 | --- |
 |<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/currupted_signed_original.png" width="400px"/>
 
