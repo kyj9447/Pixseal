@@ -13,5 +13,5 @@
 
 ### Fixed
 - **Performance Optimization** - Performance optimization for readHiddenBit() function
-- before : Signing time: 6.418772 seconds / Validating time: 3.330089 seconds
-- after : Signing time: 6.431127 seconds / Validating time: 2.615719 seconds (approx. 20% improved)
+- before : Signing time: 6.418772 seconds / **Validating time: 3.330089 seconds**
+- after : Signing time: 6.431127 seconds / **Validating time: 2.615719 seconds** (approx. 20% improved)

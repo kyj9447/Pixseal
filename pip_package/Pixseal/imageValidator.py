@@ -5,13 +5,13 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from .simpleImage import ImageInput, SimpleImage
 
 def binaryToString(binaryCode):
-    string = ""
+    string = []
     for i in range(0, len(binaryCode), 8):
         byte = binaryCode[i:i+8]
         decimal = int(byte, 2)
         character = chr(decimal)
-        string += character
-    return string
+        string.append(character)
+    return "".join(string)
 
 def readHiddenBit(imageInput: ImageInput):
     img = SimpleImage.open(imageInput)
