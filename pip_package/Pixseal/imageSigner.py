@@ -3,7 +3,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from .simpleImage import SimpleImage
+from .simpleImage import ImageInput, SimpleImage
 
 class BinaryProvider:
 
@@ -76,9 +76,9 @@ class BinaryProvider:
 
         return int(bit)
 
-def addHiddenBit(imagePath, hiddenBinary):
+def addHiddenBit(imageInput: ImageInput, hiddenBinary):
     # Open the image
-    img = SimpleImage.open(imagePath)
+    img = SimpleImage.open(imageInput)
 
     # Retrieve dimensions
     width, height = img.size
@@ -189,8 +189,8 @@ def stringCryptor(plaintext: str, public_key) -> str:
     return base64.b64encode(ciphertext).decode("ascii")
 
 # main
-# imagePath + payload string => returns image with embedded payload
-def signImage(imagePath, hiddenString, publicKeyPath = None) :
+# Image input (path or bytes) + payload string => returns image with embedded payload
+def signImage(imageInput: ImageInput, hiddenString, publicKeyPath = None) :
 
     if publicKeyPath : # When encryption key is supplied
         key_path = Path(publicKeyPath)
@@ -212,5 +212,5 @@ def signImage(imagePath, hiddenString, publicKeyPath = None) :
     else : # Plain-text payload
         hiddenBinary = BinaryProvider(hiddenString + "\n")
 
-    signedImage = addHiddenBit(imagePath, hiddenBinary)
+    signedImage = addHiddenBit(imageInput, hiddenBinary)
     return signedImage
