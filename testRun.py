@@ -28,7 +28,7 @@ def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
 
     result = validateImage(image, selected_key)
     report = result["validationReport"]
-    extracted = result.get("extractedString", "")
+    extracted = result.get("extractedString1", "")
     print("[Validate] verdict:", report["verdict"])
     print("[Validate] extracted string:", extracted)
     if selected_key:
@@ -54,7 +54,7 @@ def file_roundtrip_demo(
     print("[PathTest] Validating using file path input...")
     path_result = validateImage(str(output), str(private_key))
     path_report = path_result["validationReport"]
-    path_payload = path_result.get("extractedString1") or path_result.get("extractedString")
+    path_payload = path_result.get("extractedString1")
     print("[PathTest] verdict:", path_report["verdict"])
     print("[PathTest] extracted:", path_payload)
     pprint(path_result)
@@ -79,7 +79,7 @@ def memory_roundtrip_demo(
     signed_bytes = bytes_output.read_bytes()
     result = validateImage(signed_bytes, str(private_key))
     report = result["validationReport"]
-    extracted = result.get("extractedString1") or result.get("extractedString")
+    extracted = result.get("extractedString1")
 
     print("[Memory] (bytes) verdict:", report["verdict"])
     print("[Memory] (bytes) extracted string:", extracted)
