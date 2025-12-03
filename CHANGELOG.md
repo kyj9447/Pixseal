@@ -8,3 +8,10 @@
 
 ### Fixed
 - **Decrypt skip messaging** – Fixed the condition that shows `decryptSkipMessage`, ensuring it only surfaces when plaintext decryption was actually skipped.
+
+## [0.1.4]
+
+### Fixed
+- **Performance Optimization** - Performance optimization for readHiddenBit() function
+- before : Signing time: 6.418772 seconds / Validating time: 3.330089 seconds
+- after : Signing time: 6.431127 seconds / Validating time: 2.615719 seconds (approx. 20% improved)

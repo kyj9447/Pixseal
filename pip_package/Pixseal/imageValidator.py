@@ -14,36 +14,38 @@ def binaryToString(binaryCode):
     return string
 
 def readHiddenBit(imageInput: ImageInput):
-    # Accumulates decoded bits
-    hiddenBinary = ""
-
-    # Open the image
     img = SimpleImage.open(imageInput)
-
-    # Dimensions
     width, height = img.size
+    pixels = img._pixels  # direct buffer access for performance
+    total = width * height
+    bits = []
+    append_bit = bits.append
 
-    # Visit every pixel to rebuild the bitstream
-    for y in range(height):
-        for x in range(width):
-            # Load pixel
-            r, g, b = img.getPixel((x, y))
+    for idx in range(total):
+        base = idx * 3
+        r = pixels[base]
+        g = pixels[base + 1]
+        b = pixels[base + 2]
 
-            # Distance from 127
-            diffR = abs(r - 127)
-            diffG = abs(g - 127)
-            diffB = abs(b - 127)
+        diffR = r - 127
+        if diffR < 0:
+            diffR = -diffR
+        diffG = g - 127
+        if diffG < 0:
+            diffG = -diffG
+        diffB = b - 127
+        if diffB < 0:
+            diffB = -diffB
 
-            # Pick the channel farthest from 127
-            maxDiff = max(diffR, diffG, diffB)
+        maxDiff = diffR
+        if diffG > maxDiff:
+            maxDiff = diffG
+        if diffB > maxDiff:
+            maxDiff = diffB
 
-            # Even => 1, odd => 0
-            if maxDiff % 2 == 0:
-                hiddenBinary += "1"
-            else:
-                hiddenBinary += "0"
-    
-    return hiddenBinary
+        append_bit("1" if maxDiff % 2 == 0 else "0")
+
+    return "".join(bits)
 
 def deduplicate(arr):
     deduplicated = []
