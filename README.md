@@ -2,6 +2,7 @@
 
 Encrypted image watermark injector/validator that hides text (optionally RSA encrypted) inside 24-bit PNG or BMP files by modulating the parity of carefully selected color channels.
 - GitHub: https://github.com/kyj9447/Pixseal
+- Changelog: https://github.com/kyj9447/Pixseal/blob/main/CHANGELOG.md
 
 ## Features
 
