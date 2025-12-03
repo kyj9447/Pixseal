@@ -1,4 +1,4 @@
-from .simpleImage import SimpleImage
+from .simpleImage import ImageInput, SimpleImage
 from .imageSigner import (
     BinaryProvider,
     addHiddenBit,
@@ -14,6 +14,7 @@ from .imageValidator import (
 
 __all__ = [
     "SimpleImage",
+    "ImageInput",
     "BinaryProvider",
     "addHiddenBit",
     "signImage",

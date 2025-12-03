@@ -28,7 +28,7 @@ Python 3.8+ is required. The only runtime dependency is `cryptography>=41.0.0`.
 from Pixseal import signImage
 
 result = signImage(
-    imagePath="original.png",
+    imageInput="original.png",  # accepts a file path or raw PNG/BMP bytes
     hiddenString="!Validation:kyj9447@mailmail.com",
     publicKeyPath="SSL/public_key.pem",  # omit for plain-text embedding
 )
@@ -44,7 +44,7 @@ result.save("signed_original.png")
 from Pixseal import validateImage
 
 report = validateImage(
-    imagePath="signed_original.png",
+    imageInput="signed_original.png",  # accepts a file path or raw PNG/BMP bytes
     privKeyPath="SSL/private_key.pem",  # omit for plain-text payloads
 )
 
@@ -91,9 +91,9 @@ Point `publicKeyPath` / `privKeyPath` to these files.
 
 | Function | Description |
 | --- | --- |
-| `signImage(imagePath, hiddenString, publicKeyPath=None)` | Loads a PNG/BMP, injects `hiddenString` plus sentinels, encrypting each chunk when `publicKeyPath` is provided. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
-| `validateImage(imagePath, privKeyPath=None)` | Reads the hidden bit stream back, splits by newlines, deduplicates, optionally decrypts each chunk (Base64 indicates ciphertext), and returns the payload plus a validation report. |
-| `SimpleImage.open(path)` | Low-level helper that exposes `size`, `getPixel`, `putPixel`, `save`, and `saveBmp`. Useful if you need custom preprocessing before/after signing. |
+| `signImage(imageInput, hiddenString, publicKeyPath=None)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `hiddenString` plus sentinels, encrypting each chunk when `publicKeyPath` is provided. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
+| `validateImage(imageInput, privKeyPath=None)` | Reads the hidden bit stream from a path or raw bytes, splits by newlines, deduplicates, optionally decrypts each chunk (Base64 indicates ciphertext), and returns the payload plus a validation report. |
+| `SimpleImage.open(path_or_bytes)` | Low-level helper that exposes `size`, `getPixel`, `putPixel`, `save`, and `saveBmp`. Useful if you need custom preprocessing before/after signing. |
 | `BinaryProvider`, `addHiddenBit`, `readHiddenBit`, `buildValidationReport` | Lower-level primitives exported from `Pixseal` for advanced workflows or experimentation. |
 
 ## Examples

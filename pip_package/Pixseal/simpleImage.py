@@ -1,6 +1,8 @@
 import struct
 import zlib
-from typing import List, Sequence, Tuple
+from io import BytesIO
+from pathlib import Path
+from typing import List, Sequence, Tuple, Union
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -238,6 +240,9 @@ def _writeBmp(path: str, width: int, height: int, pixels: Sequence[int]) -> None
                 output.write(padBytes)
 
 
+ImageInput = Union[str, Path, bytes, bytearray]
+
+
 class SimpleImage:
     """Minimal RGB image helper that supports PNG/BMP read/write."""
 
@@ -255,17 +260,26 @@ class SimpleImage:
     def size(self) -> Tuple[int, int]:
         return self.width, self.height
 
+    @staticmethod
+    def _streamToImage(stream) -> Tuple[int, int, bytearray]:
+        signature = stream.read(8)
+        stream.seek(0)
+        if signature.startswith(PNG_SIGNATURE):
+            return _loadPng(stream)
+        if signature[:2] == b"BM":
+            return _loadBmp(stream)
+        raise ValueError("Unsupported image format")
+
     @classmethod
-    def open(cls, path: str) -> "SimpleImage":
-        with open(path, "rb") as stream:
-            signature = stream.read(8)
-            stream.seek(0)
-            if signature.startswith(PNG_SIGNATURE):
-                width, height, pixels = _loadPng(stream)
-            elif signature[:2] == b"BM":
-                width, height, pixels = _loadBmp(stream)
-            else:
-                raise ValueError("Unsupported image format")
+    def open(cls, source: ImageInput) -> "SimpleImage":
+        if isinstance(source, (str, Path)):
+            with open(source, "rb") as stream:
+                width, height, pixels = cls._streamToImage(stream)
+        elif isinstance(source, (bytes, bytearray)):
+            stream = BytesIO(source)
+            width, height, pixels = cls._streamToImage(stream)
+        else:
+            raise TypeError("source must be a file path or raw bytes")
         return cls(width, height, pixels)
 
     def getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:

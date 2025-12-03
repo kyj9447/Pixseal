@@ -2,7 +2,7 @@ import base64
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from .simpleImage import SimpleImage
+from .simpleImage import ImageInput, SimpleImage
 
 def binaryToString(binaryCode):
     string = ""
@@ -13,12 +13,12 @@ def binaryToString(binaryCode):
         string += character
     return string
 
-def readHiddenBit(imagePath):
+def readHiddenBit(imageInput: ImageInput):
     # Accumulates decoded bits
     hiddenBinary = ""
 
     # Open the image
-    img = SimpleImage.open(imagePath)
+    img = SimpleImage.open(imageInput)
 
     # Dimensions
     width, height = img.size
@@ -127,17 +127,17 @@ def decrypt_array(deduplicated, privKeyPath):
                 decrypted.append(plain_bytes.decode("utf-8"))
             except Exception as exc:
                 print(exc)
-                skippedPlain = True
                 decrypted.append(item)
         else:
-            skippedPlain = True
+            if item != deduplicated[2]:
+                skippedPlain = True
             decrypted.append(item)
 
     return decrypted, skippedPlain
 
 # main
-def validateImage(imagePath, privKeyPath = None):
-    resultBinary = readHiddenBit(imagePath)
+def validateImage(imageInput: ImageInput, privKeyPath = None):
+    resultBinary = readHiddenBit(imageInput)
     resultString = binaryToString(resultBinary)
     splited = resultString.split("\n")
     deduplicated = deduplicate(splited)
@@ -148,8 +148,15 @@ def validateImage(imagePath, privKeyPath = None):
         decrypted = deduplicated
         skippedPlain = False
 
-    report = buildValidationReport(decrypted, skippedPlain, tailCheck(deduplicated))
+    report = buildValidationReport(decrypted=decrypted, tailCheck=tailCheck(deduplicated), skipPlain=skippedPlain )
+    
+    extractedString1 = decrypted[1]
+    extractedString2 = decrypted[2]
+    if len(decrypted[2]) > len(decrypted[1]):
+        extractedString2 = decrypted[2][:len(decrypted[1])] + "..."
+    
     return {
-        "extractedString": decrypted[1],
+        "extractedString1": extractedString1,
+        "extractedString2": extractedString2,
         "validationReport": report
     }
