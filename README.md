@@ -1,3 +1,7 @@
+<p align="center">
+<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/Pixseal.png" width="200px"/>
+</p>
+
 # Pixseal
 
 Encrypted image watermark injector/validator that hides text (optionally RSA encrypted) inside 24-bit PNG or BMP files by modulating the parity of carefully selected color channels.
