@@ -9,7 +9,7 @@ designed to **detect whether an image has been modified since signing.**
 
 Pixseal embeds a **cryptographically verifiable integrity seal** into an image in an
 invisible manner. During verification, **any modification** — including editing,
-filtering, cropping, resizing, re-encoding, or metadata changes — will cause
+filtering, cropping, resizing, re-encoding — will cause
 verification to **immediately fail**.
 
 If **even a single pixel** is altered after signing, Pixseal will detect it.
@@ -33,7 +33,7 @@ Pixseal prioritizes tamper sensitivity over robustness against intentional adver
     - filters and color adjustments
     - cropping and resizing
     - re-encoding and recompression
-    - pixel-level or metadata changes
+    - pixel-level changes
 
 - **Invisible Integrity Seal**
   - Embeds verification data without any visible watermark
@@ -75,7 +75,7 @@ from Pixseal import signImage
 result = signImage(
     imageInput="original.png",  # accepts a file path or raw PNG/BMP bytes
     hiddenString="!Validation:kyj9447@mailmail.com",
-    publicKeyPath="SSL/public_key.pem",  # omit for plain-text embedding
+    publicKeyPath="RSA/public_key.pem",  # omit for plain-text embedding
 )
 result.save("signed_original.png")
 ```
@@ -90,7 +90,7 @@ from Pixseal import validateImage
 
 report = validateImage(
     imageInput="signed_original.png",  # accepts a file path or raw PNG/BMP bytes
-    privKeyPath="SSL/private_key.pem",  # omit for plain-text payloads
+    privKeyPath="RSA/private_key.pem",  # omit for plain-text payloads
 )
 
 print(report["extractedString1"])
@@ -120,9 +120,9 @@ print(report["validationReport"])
 
 `python testRun.py` offers an interactive flow:
 
-1. Choose **1** to sign an image. It reads `original.png`, asks for a payload (default `!Validation:kyj9447@mailmail.com`), optionally encrypts with `SSL/public_key.pem`, and writes `signed_<name>.png`.
-2. Choose **2** to validate. It reads `signed_original.png`, optionally decrypts with `SSL/private_key.pem`, and prints both the extracted string and verdict.
-3. Choose **3** to benchmark performance. It reads `original.png`, encrypts it with `SSL/public_key.pem`, and writes `signed_original.png`, printing the elapsed signing time. Then it reads `signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
+1. Choose **1** to sign an image. It reads `original.png`, asks for a payload (default `!Validation:kyj9447@mailmail.com`), optionally encrypts with `RSA/public_key.pem`, and writes `signed_<name>.png`.
+2. Choose **2** to validate. It reads `signed_original.png`, optionally decrypts with `RSA/private_key.pem`, and prints both the extracted string and verdict.
+3. Choose **3** to benchmark performance. It reads `original.png`, encrypts it with `RSA/public_key.pem`, and writes `signed_original.png`, printing the elapsed signing time. Then it reads `signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
 4. Choose **4** to test signing and validation with file-path input option.
 5. Choose **5** to test signing and validation with byte-stream input option.
 ### Key management
@@ -130,8 +130,8 @@ print(report["validationReport"])
 Generate a test RSA pair (PKCS#8) with OpenSSL:
 
 ```bash
-openssl genpkey -algorithm RSA -out SSL/private_key.pem -pkeyopt rsa_keygen_bits:2048
-openssl rsa -pubout -in SSL/private_key.pem -out SSL/public_key.pem
+openssl genpkey -algorithm RSA -out RSA/private_key.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -pubout -in RSA/private_key.pem -out RSA/public_key.pem
 ```
 
 Point `publicKeyPath` / `privKeyPath` to these files.
@@ -155,7 +155,7 @@ Validation output excerpt:
 ```
 [Validate] verdict: True
 [Validate] extracted string: !Validation:kyj9447@mailmail.com
-[Validate] decrypted with private key: SSL/private_key.pem
+[Validate] decrypted with private key: RSA/private_key.pem
 
 Validation Report
 
@@ -185,7 +185,7 @@ string argument should contain only ASCII characters
 string argument should contain only ASCII characters
 [Validate] verdict: False
 [Validate] extracted string: !Validation:kyj9447@mailmail.com
-[Validate] decrypted with private key: SSL/private_key.pem
+[Validate] decrypted with private key: RSA/private_key.pem
 
 Validation Report
 

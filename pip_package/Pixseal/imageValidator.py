@@ -4,14 +4,16 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from .simpleImage import ImageInput, SimpleImage
 
+
 def binaryToString(binaryCode):
     string = []
     for i in range(0, len(binaryCode), 8):
-        byte = binaryCode[i:i+8]
+        byte = binaryCode[i : i + 8]
         decimal = int(byte, 2)
         character = chr(decimal)
         string.append(character)
     return "".join(string)
+
 
 def readHiddenBit(imageInput: ImageInput):
     img = SimpleImage.open(imageInput)
@@ -47,6 +49,7 @@ def readHiddenBit(imageInput: ImageInput):
 
     return "".join(bits)
 
+
 def deduplicate(arr):
     deduplicated = []
     freq = {}
@@ -64,14 +67,16 @@ def deduplicate(arr):
 
     return deduplicated, most_common
 
+
 def tailCheck(arr: list[str]):
     if len(arr) != 4:
-        return None # Not required
+        return None  # Not required
 
-    full_cipher = arr[1]       # complete ciphertext
+    full_cipher = arr[1]  # complete ciphertext
     truncated_cipher = arr[2]  # incomplete ciphertext
 
     return full_cipher.startswith(truncated_cipher)
+
 
 def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
     # Length after deduplication/decryption
@@ -91,8 +96,8 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
     checkList = [lengthCheck, startCheck, endCheck, isDecrypted]
     # 5. Parse tailCheck result
     if tailCheck is None:
-        tailCheckResult = 'Not Required'
-    else :
+        tailCheckResult = "Not Required"
+    else:
         tailCheckResult = tailCheck
         checkList.append(tailCheckResult)
 
@@ -106,13 +111,16 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
         "endCheck": endCheck,
         "isDecrypted": isDecrypted,
         "tailCheckResult": tailCheckResult,
-        "verdict": verdict
+        "verdict": verdict,
     }
 
     if skipPlain:
-        result["decryptSkipMessage"] = "Skip decrypt: payload was plain or corrupted text despite decrypt request."
+        result["decryptSkipMessage"] = (
+            "Skip decrypt: payload was plain or corrupted text despite decrypt request."
+        )
 
     return result
+
 
 def decrypt_array(deduplicated, privKeyPath):
     # Load PEM private key
@@ -154,23 +162,26 @@ def decrypt_array(deduplicated, privKeyPath):
 
     return decrypted, skippedPlain
 
+
 # main
-def validateImage(imageInput: ImageInput, privKeyPath = None):
+def validateImage(imageInput: ImageInput, privKeyPath=None):
     resultBinary = readHiddenBit(imageInput)
     resultString = binaryToString(resultBinary)
     splited = resultString.split("\n")
     deduplicated, most_common = deduplicate(splited)
 
     if privKeyPath:
-        decrypted, skippedPlain = decrypt_array(deduplicated,privKeyPath)
-    else :
+        decrypted, skippedPlain = decrypt_array(deduplicated, privKeyPath)
+    else:
         decrypted = deduplicated
         skippedPlain = False
 
-    report = buildValidationReport(decrypted=decrypted, tailCheck=tailCheck(deduplicated), skipPlain=skippedPlain )
-    
+    report = buildValidationReport(
+        decrypted=decrypted, tailCheck=tailCheck(deduplicated), skipPlain=skippedPlain
+    )
+
     return {
-        "extractedString":decrypt_array({most_common},privKeyPath)[0][0],
+        "extractedString": decrypt_array({most_common}, privKeyPath)[0][0],
         "decrypted": decrypted,
-        "validationReport": report
+        "validationReport": report,
     }
