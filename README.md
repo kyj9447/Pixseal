@@ -4,16 +4,55 @@
 
 # Pixseal
 
-Encrypted image watermark injector/validator that hides text (optionally RSA encrypted) inside 24-bit PNG or BMP files by modulating the parity of carefully selected color channels.
+Pixseal is a Python-based **image integrity and authenticity verification tool**
+designed to **prove that an image has NOT been modified in any way**.
+
+Pixseal embeds a **cryptographically verifiable integrity seal** into an image in an
+invisible manner. During verification, **any modification** — including editing,
+filtering, cropping, resizing, re-encoding, or metadata changes — will cause
+verification to **immediately fail**.
+
+If **even a single pixel** is altered after signing, Pixseal will detect it.
+
+Pixseal is not a visual watermarking or branding tool.  
+The watermark exists solely as a **means to achieve strict, deterministic image
+tamper detection**.
+
 - GitHub: https://github.com/kyj9447/Pixseal
 - Changelog: https://github.com/kyj9447/Pixseal/blob/main/CHANGELOG.md
 
 ## Features
+- **Image Integrity Verification**
+  - Cryptographically proves that an image remains in its original, unmodified state
+  - Detects single-pixel changes with deterministic verification results
 
-- **Noise-resistant embedding**: Chooses the RGB component whose value is farthest from 127 and nudges it ±1 to match each payload bit, keeping noise visually imperceptible.
-- **Sentinel-based framing**: Automatically prefixes/suffixes payloads with `START-VALIDATION` / `END-VALIDATION` markers so the validator knows where to look.
-- **Optional RSA envelope**: When you pass a public key, both the sentinels and payload are encrypted with OAEP (SHA-256). Validation decrypts with the matching private key before building a verdict.
-- **Pure Python image I/O**: `SimpleImage` reads/writes uncompressed BMPs as well as 8-bit RGB/RGBA PNGs without third-party imaging libraries.
+- **Tamper Detection**
+  - Detects all forms of image modification, including:
+    - editing
+    - filters and color adjustments
+    - cropping and resizing
+    - re-encoding and recompression
+    - pixel-level or metadata changes
+
+- **Invisible Integrity Seal**
+  - Embeds verification data without any visible watermark
+  - Preserves the original visual appearance of the image
+
+- **RSA-Based Encryption (Optional)**
+  - Supports RSA public/private key encryption for embedded verification data
+  - Allows separation of signing and verification roles
+
+- **Verification & Extraction**
+  - Successfully extracts embedded data only if the image is authentic
+  - Automatically fails verification when tampering is detected
+
+- **Fully Local & Offline**
+  - No external servers or network dependencies
+  - Pure Python implementation
+
+- **Lossless Format Support**
+  - Supports PNG and BMP (24-bit) images
+  - Lossy formats (e.g., JPEG, WebP) are intentionally excluded to preserve integrity guarantees
 
 ## Installation
 
