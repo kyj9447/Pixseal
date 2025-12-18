@@ -96,7 +96,15 @@ def _loadPng(stream) -> Tuple[int, int, bytearray]:
         elif chunkType == b"IEND":
             break
 
-    if None in (width, height, bitDepth, colorType, compression, filterMethod, interlace):
+    if None in (
+        width,
+        height,
+        bitDepth,
+        colorType,
+        compression,
+        filterMethod,
+        interlace,
+    ):
         raise ValueError("Incomplete PNG header information")
     if bitDepth != 8:
         raise ValueError("Only 8-bit PNG images are supported")

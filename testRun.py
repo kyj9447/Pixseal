@@ -4,8 +4,9 @@ import time
 
 from pip_package.Pixseal import signImage, validateImage
 
-DEFAULT_PUBLIC_KEY = "SSL/public_key.pem"
-DEFAULT_PRIVATE_KEY = "SSL/private_key.pem"
+DEFAULT_PUBLIC_KEY = "RSA/public_key.pem"
+DEFAULT_PRIVATE_KEY = "RSA/private_key.pem"
+
 
 def shorten(seq, max_items=6):
     if len(seq) <= max_items:
@@ -13,6 +14,7 @@ def shorten(seq, max_items=6):
     head = seq[:2]
     tail = seq[-2:]
     return head + ["..."] + tail
+
 
 def truncate_decrypted_entries(result):
     decrypted = result.get("decrypted", [])
@@ -33,6 +35,7 @@ def truncate_decrypted_entries(result):
             truncated.append(value)
     result["decrypted"] = shorten(truncated)
 
+
 def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
     payload = payload or "!Validation:kyj9447@mailmail.com"
     output = Path("signed_" + Path(image).name)
@@ -46,6 +49,7 @@ def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
         print(f"[Sign] encrypted with public key: {selected_key}")
     else:
         print("[Sign] plain-text payload injected")
+
 
 def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
     selected_key = privkey if decrypt else None
@@ -64,6 +68,7 @@ def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
 
     print("\nValidation Report\n")
     pprint(result)
+
 
 def file_roundtrip_demo(
     image="original.png",
@@ -84,6 +89,7 @@ def file_roundtrip_demo(
     print("[PathTest] verdict:", path_report["verdict"])
     print("[PathTest] extracted:", path_result.get("extractedString"))
     pprint(path_result)
+
 
 def memory_roundtrip_demo(
     image="original.png",
@@ -111,6 +117,7 @@ def memory_roundtrip_demo(
     print("[Memory] (bytes) extracted string:", result.get("extractedString"))
     pprint(result)
 
+
 def _prompt_bool(message, default=False):
     suffix = " [Y/n]: " if default else " [y/N]: "
     choice = input(message + suffix).strip().lower()
@@ -118,28 +125,38 @@ def _prompt_bool(message, default=False):
         return default
     return choice in ("y", "yes")
 
+
 def main():
-    choice = input("1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: File Path Test / 5: Memory API Test >> ").strip()
-    
+    choice = input(
+        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: File Path Test / 5: Memory API Test >> "
+    ).strip()
+
     if choice == "1":
         image = input("Image file (default original.png): ").strip() or "original.png"
         msg = input("Payload to inject (Enter=default): ")
         encrypt = _prompt_bool("Encrypt with RSA public key?", default=True)
         pubkey = None
         if encrypt:
-            pubkey_input = input(f"Public key path (default {DEFAULT_PUBLIC_KEY}): ").strip()
+            pubkey_input = input(
+                f"Public key path (default {DEFAULT_PUBLIC_KEY}): "
+            ).strip()
             pubkey = pubkey_input or None
         sign_demo(image, msg or None, encrypt, pubkey)
-    
+
     elif choice == "2":
-        image = input("Image to validate (default signed_original.png): ").strip() or "signed_original.png"
+        image = (
+            input("Image to validate (default signed_original.png): ").strip()
+            or "signed_original.png"
+        )
         decrypt = _prompt_bool("Decrypt with RSA private key?", default=True)
         privkey = None
         if decrypt:
-            privkey_input = input(f"Private key path (default {DEFAULT_PRIVATE_KEY}): ").strip()
+            privkey_input = input(
+                f"Private key path (default {DEFAULT_PRIVATE_KEY}): "
+            ).strip()
             privkey = privkey_input or None
         validate_demo(image, decrypt, privkey)
-    
+
     elif choice == "3":
         print("Encrypted 'AutoTest123!' will be injected\n")
 
@@ -166,9 +183,10 @@ def main():
 
     elif choice == "5":
         memory_roundtrip_demo()
-        
+
     else:
         print("Invalid selection.")
+
 
 if __name__ == "__main__":
     main()
