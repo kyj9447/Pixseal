@@ -3,7 +3,7 @@
 </p>
 
 # Pixseal
-
+### Prove what you published — and what you didn’t.
 Pixseal is a Python-based **image integrity and authenticity verification tool**
 designed to **detect whether an image has been modified since signing.**
 
