@@ -5,7 +5,7 @@
 # Pixseal
 
 Pixseal is a Python-based **image integrity and authenticity verification tool**
-designed to **prove that an image has NOT been modified in any way**.
+designed to **detect whether an image has been modified since signing.**
 
 Pixseal embeds a **cryptographically verifiable integrity seal** into an image in an
 invisible manner. During verification, **any modification** — including editing,
@@ -17,6 +17,7 @@ If **even a single pixel** is altered after signing, Pixseal will detect it.
 Pixseal is not a visual watermarking or branding tool.  
 The watermark exists solely as a **means to achieve strict, deterministic image
 tamper detection**.
+Pixseal prioritizes tamper sensitivity over robustness against intentional adversarial manipulation.
 
 - GitHub: https://github.com/kyj9447/Pixseal
 - Changelog: https://github.com/kyj9447/Pixseal/blob/main/CHANGELOG.md
@@ -43,7 +44,7 @@ tamper detection**.
   - Allows separation of signing and verification roles
 
 - **Verification & Extraction**
-  - Successfully extracts embedded data only if the image is authentic
+  - Payloads may be partially or fully extractable even after modification
   - Automatically fails verification when tampering is detected
 
 - **Fully Local & Offline**
