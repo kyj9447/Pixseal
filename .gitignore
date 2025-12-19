@@ -7,5 +7,4 @@ pip_package/Pixseal.egg-info/
 pip_package/Pixseal/*.c
 pip_package/Pixseal/*.so
 testRun.py.lprof
-build.sh
 publish.sh
