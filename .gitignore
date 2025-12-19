@@ -2,6 +2,10 @@ __pycache__
 .venv
 token.txt
 dist.sh
-pip_package/*
-!pip_package/pyproject.toml
-!pip_package/Pixseal/
+pip_package/dist/
+pip_package/Pixseal.egg-info/
+pip_package/Pixseal/*.c
+pip_package/Pixseal/*.so
+testRun.py.lprof
+build.sh
+publish.sh

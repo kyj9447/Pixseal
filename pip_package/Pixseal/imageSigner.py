@@ -2,6 +2,13 @@ import base64
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from line_profiler import profile
+
+try:
+    from line_profiler import profile  # type: ignore
+except ImportError:  # pragma: no cover
+    def profile(func):
+        return func
 
 from .simpleImage import ImageInput, SimpleImage
 
@@ -59,6 +66,7 @@ class BinaryProvider:
         return bits
 
 
+@profile
 def addHiddenBit(imageInput: ImageInput, hiddenBinary: BinaryProvider):
     img = SimpleImage.open(imageInput)
     width, height = img.size
