@@ -67,28 +67,23 @@ Python 3.8+ is required. Wheels published to PyPI already include the compiled
 Cython extension, so `pip install Pixseal` automatically selects the right build
 for your operating system and CPU.
 
-### Building from a git clone
+### Building the Cython extension
 
-If you cloned the repository (or downloaded the source), run the included build
-script to create a wheel/SDist tailored to your environment:
+If you cloned the repository (or downloaded the source), run the helper script
+to compile the `simpleImage_ext` extension for your environment:
 
 ```bash
 git clone https://github.com/kyj9447/Pixseal.git
 cd Pixseal
 python3 -m pip install -r requirements.txt
-./build.sh
-# Install the freshly built wheel (optional)
-python3 -m pip install pip_package/dist/Pixseal-*.whl
+./compile_extension.sh
 ```
 
-Even after running `python3 -m pip install -r requirements.txt` you still need a
-working C toolchain (`gcc`) and the Python development headers exposed via
-`python3-config`; these come from your OS packages, not pip.
-
-`build.sh` invokes Cython and `gcc` (via `python3-config`) before producing the
-wheel/sdist artifacts. Ensure `cython`, `build`, and a working C toolchain are
-installed. If you skip this step, Pixseal falls back to the pure Python
-implementation, which works but is significantly slower.
+This command regenerates the C source via Cython and invokes your local C
+compiler (`clang` or `gcc`) to produce `pip_package/Pixseal/simpleImage_ext*.so`.
+You still need a working build toolchain (`gcc`/`clang` and Python headers)
+installed through your OS package manager. If you skip this step, Pixseal falls
+back to the pure Python implementation, which works but is significantly slower.
 
 ## Usage
 
