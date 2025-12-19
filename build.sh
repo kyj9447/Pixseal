@@ -26,3 +26,8 @@ fi
 
 export PIP_NO_INPUT=1
 (cd "$PKG_DIR" && python -m build)
+
+# Cleanup transient build artifacts
+rm -f "$PKG_DIR/Pixseal/simpleImage_ext.c"
+rm -f "$PKG_DIR/Pixseal/simpleImage.c"
+rm -rf "$PKG_DIR/Pixseal.egg-info"
