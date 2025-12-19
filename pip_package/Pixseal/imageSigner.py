@@ -15,79 +15,56 @@ class BinaryProvider:
         startString="START-VALIDATION\n",
         endString="\nEND-VALIDATION",
     ):
-        self.hiddenBinary = self.strToBinary(hiddenString)
-        self.hiddenBinaryIndex = 0
-        self.hiddenBinaryIndexMax = len(self.hiddenBinary)
-
-        # Start sentinel
-        self.startBinary = self.strToBinary(startString)
-        self.startBinaryIndex = 0
-        self.startBinaryIndexMax = len(self.startBinary)
-
-        # End sentinel
-        self.endBinary = self.strToBinary(endString)
-        # End bits are written in reverse from the tail
-        self.endBinaryIndex = len(self.endBinary) - 1
-        self.endBinaryIndexMin = 0
+        self.hiddenBits = self._stringToBits(hiddenString)
+        self.startBits = self._stringToBits(startString)
+        self.endBits = self._stringToBits(endString)
 
     # Convert string to contiguous binary digits
-    def strToBinary(self, string):
-        # Prepare an empty list for characters
-        binaries = []
-
-        # Iterate over each character
+    def _stringToBits(self, string):
+        bits = []
         for char in string:
-            # Convert character to 8-bit binary and append
-            binaries.append(bin(ord(char))[2:].zfill(8))
+            binary = format(ord(char), "08b")
+            bits.extend(int(bit) for bit in binary)
+        return bits
 
-        # Join into a single string
-        return "".join(binaries)
+    def _expandPayload(self, count: int):
+        if count <= 0:
+            return []
+        payloadLen = len(self.hiddenBits)
+        if payloadLen == 0:
+            raise ValueError("Hidden payload is empty")
+        repeats, remainder = divmod(count, payloadLen)
+        return (self.hiddenBits * repeats) + self.hiddenBits[:remainder]
 
-    # Retrieve the next bit, emitting the start sentinel before payload
-    def nextBit(self):
+    def buildBitArray(self, pixelCount: int):
+        startLen = len(self.startBits)
+        endLen = len(self.endBits)
+        if pixelCount < startLen + endLen:
+            raise ValueError("Image is too small to fit start/end sentinels")
 
-        # After the start sentinel, consume payload bits
-        if self.startBinaryIndex == self.startBinaryIndexMax:
-            # Loop payload bits when the end is reached
-            if self.hiddenBinaryIndex >= self.hiddenBinaryIndexMax:
-                self.hiddenBinaryIndex = 0
+        bits = [0] * pixelCount
 
-            # Read the payload bit at the current index
-            bit = self.hiddenBinary[self.hiddenBinaryIndex]
+        # 1. Place START-VALIDATION bits first
+        bits[:startLen] = self.startBits
 
-            # Advance payload index
-            self.hiddenBinaryIndex += 1
+        # 2. Fill the remaining slots by repeating the payload bits
+        payloadSlots = pixelCount - startLen
+        payloadBits = self._expandPayload(payloadSlots)
+        bits[startLen:] = payloadBits[:payloadSlots]
 
-        # Otherwise continue to emit start sentinel bits
-        else:
-            # Pull the bit from the start sentinel
-            bit = self.startBinary[self.startBinaryIndex]
+        # 3. Overwrite the tail with END-VALIDATION bits
+        tailStart = pixelCount - endLen
+        bits[tailStart:] = self.endBits
 
-            # Advance start sentinel index
-            self.startBinaryIndex += 1
-
-        return int(bit)
-
-    # Retrieve the next end sentinel bit in reverse order
-    def nextEnd(self):
-        # End sentinel complete when we reach the lower bound
-        if self.endBinaryIndex == self.endBinaryIndexMin:
-            return None
-
-        # Grab the bit at the current index
-        bit = self.endBinary[self.endBinaryIndex]
-
-        # Move backwards
-        self.endBinaryIndex -= 1
-
-        return int(bit)
+        return bits
 
 
-def addHiddenBit(imageInput: ImageInput, hiddenBinary):
+def addHiddenBit(imageInput: ImageInput, hiddenBinary: BinaryProvider):
     img = SimpleImage.open(imageInput)
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
     total = width * height
+    payloadBits = hiddenBinary.buildBitArray(total)
 
     # Iterate over every pixel and inject one bit
     for idx in range(total):
@@ -127,7 +104,7 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
         addDirection = 1 if targetColorValue < 127 else -1
 
         # Pull next bit from provider
-        bit = hiddenBinary.nextBit()
+        bit = payloadBits[idx]
 
         # Force the selected channel parity to match the bit
         if maxDiff == diffR:
@@ -144,68 +121,6 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary):
         pixels[base] = r
         pixels[base + 1] = g
         pixels[base + 2] = b
-
-    # Append the end sentinel starting from the last pixel
-    for idx in reversed(range(total)):
-        # Read the pixel
-        base = idx * 3
-        # Read the pixel
-        r = pixels[base]
-        g = pixels[base + 1]
-        b = pixels[base + 2]
-
-        # Distance from 127
-        diffR = r - 127
-        if diffR < 0:
-            diffR = -diffR
-        diffG = g - 127
-        if diffG < 0:
-            diffG = -diffG
-        diffB = b - 127
-        if diffB < 0:
-            diffB = -diffB
-
-        # Select the farthest channel
-        maxDiff = diffR
-        if diffG > maxDiff:
-            maxDiff = diffG
-        if diffB > maxDiff:
-            maxDiff = diffB
-
-        # Actual value of that channel
-        if maxDiff == diffR:
-            targetColorValue = r
-        elif maxDiff == diffG:
-            targetColorValue = g
-        else:
-            targetColorValue = b
-
-        # Direction to adjust
-        addDirection = 1 if targetColorValue < 127 else -1
-
-        # End-bit provider
-        bit = hiddenBinary.nextEnd()
-        if bit is None:
-            break
-
-        # Apply the parity tweak
-        if maxDiff == diffR:
-            if r % 2 != bit:
-                r += addDirection
-        if maxDiff == diffG:
-            if g % 2 != bit:
-                g += addDirection
-        if maxDiff == diffB:
-            if b % 2 != bit:
-                b += addDirection
-
-        # Persist the adjustment
-        pixels[base] = r
-        pixels[base + 1] = g
-        pixels[base + 2] = b
-
-        if bit is None:
-            break
 
     # Return the modified image
     return img
@@ -228,6 +143,22 @@ def stringCryptor(plaintext: str, public_key) -> str:
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
 def signImage(imageInput: ImageInput, hiddenString, publicKeyPath=None):
+    """
+    Embed a payload into an image using the parity-based steganography scheme.
+
+    Args:
+        imageInput: File path, bytes, or file-like object accepted by SimpleImage.
+        hiddenString: Text payload that should be written into the image.
+        publicKeyPath: Optional path to a PEM-encoded RSA public key used to
+            encrypt the payload and sentinel markers before embedding.
+
+    Returns:
+        SimpleImage instance whose pixels include the signed payload.
+
+    Raises:
+        FileNotFoundError: If a public key path is provided but the file is missing.
+        ValueError: If the file is not a valid PEM public key.
+    """
 
     if publicKeyPath:  # When encryption key is supplied
         key_path = Path(publicKeyPath)
