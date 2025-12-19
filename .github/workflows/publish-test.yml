@@ -82,9 +82,6 @@ jobs:
       - build-sdist
     environment:
       name: testpypi
-      url: test.pypi.org # 패키지 이름으로 변경 권장
-    permissions:
-      id-token: write # Trusted Publishing(OIDC) 사용 시 필수
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -96,6 +93,7 @@ jobs:
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          # 1. URL 형식을 올바르게 수정 (https:// 포함)
           repository-url: test.pypi.org
-          # API 토큰 방식을 유지하려면 아래 주석 해제, OIDC 사용 시 생략 가능
-          # password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # 2. API 토큰 방식 사용 (사용자명은 자동으로 __token__이 사용됨)
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
