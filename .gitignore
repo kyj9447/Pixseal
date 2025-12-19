@@ -6,6 +6,8 @@ pip_package/dist/
 pip_package/Pixseal.egg-info/
 pip_package/Pixseal/*.c
 pip_package/Pixseal/*.so
+pip_package/Pixseal/simpleImage_ext.*
+!pip_package/Pixseal/simpleImage_ext.pyx
 testRun.py.lprof
 publish.sh
 testroom/

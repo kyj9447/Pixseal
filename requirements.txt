@@ -4,3 +4,7 @@ wheel
 Cython>=3.0
 cryptography>=41.0.0
 line_profiler
+cffi>=2.0.0
+pycparser>=2.23
+packaging>=25.0
+pyproject_hooks>=1.2.0
