@@ -1,6 +1,34 @@
 from pathlib import Path
 from pprint import pprint
+import os
 import time
+import builtins
+
+
+def _choose_backend():
+    backend = os.environ.get("PIXSEAL_SIMPLEIMAGE_BACKEND")
+    if backend in {"python", "cython"}:
+        print(f"[Init] Using SimpleImage backend: {backend}")
+        return
+    choice = (
+        input(
+            "Select SimpleImage backend "
+            "(Enter=cython / 1=cython / 2=python fallback): "
+        )
+        .strip()
+        .lower()
+    )
+    backend = "python" if choice == "2" or choice == "python" else "cython"
+    os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
+    print(f"[Init] SimpleImage backend set to: {backend}")
+
+
+_choose_backend()
+
+try:
+    from line_profiler import LineProfiler  # type: ignore
+except ImportError:  # pragma: no cover
+    LineProfiler = None
 
 from pip_package.Pixseal import signImage, validateImage
 
@@ -43,7 +71,7 @@ def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
     if encrypt and not selected_key:
         selected_key = str(DEFAULT_PUBLIC_KEY)
     signed = signImage(image, payload, selected_key)
-    signed.save(output)
+    signed.save(str(output))
     print(f"[Sign] saved -> {output}")
     if selected_key:
         print(f"[Sign] encrypted with public key: {selected_key}")
@@ -79,7 +107,7 @@ def file_roundtrip_demo(
     output = Path("signed_path_test.png")
     print("\n[PathTest] Signing using file path input...")
     signed_from_path = signImage(image, payload, str(public_key))
-    signed_from_path.save(output)
+    signed_from_path.save(str(output))
     print(f"[PathTest] Saved path-based signed image -> {output}")
 
     print("[PathTest] Validating using file path input...")
@@ -104,7 +132,7 @@ def memory_roundtrip_demo(
 
     print("[Memory] Signing using in-memory bytes...")
     signed_image = signImage(image_bytes, payload, str(public_key))
-    signed_image.save(bytes_output)
+    signed_image.save(str(bytes_output))
     print(f"[Memory] Saved signed image -> {bytes_output}")
 
     print("[Memory] Validating using in-memory bytes...")
@@ -118,6 +146,56 @@ def memory_roundtrip_demo(
     pprint(result)
 
 
+def line_profile_demo():
+    if LineProfiler is None:
+        print(
+            "line_profiler is not installed. "
+            "Please run `pip install line_profiler` and try again."
+        )
+        return
+
+    builtin_profiler = getattr(builtins, "profile", None)
+    is_kernprof = (
+        builtin_profiler is not None
+        and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0]
+        == "line_profiler"
+    )
+
+    if not is_kernprof:
+        print(
+            "Line profiling is only available when running via `kernprof -l testRun.py`."
+        )
+        print("Please rerun this script with kernprof and select option 6 again.")
+        return
+
+    image = "original.png"
+    payload = "AutoTest123!"
+    pubkey = str(DEFAULT_PUBLIC_KEY)
+    privkey = str(DEFAULT_PRIVATE_KEY)
+
+    profiler = LineProfiler()
+    profiled_sign = profiler(signImage)
+    profiled_validate = profiler(validateImage)
+
+    output = Path("profiled_signed.png")
+    print("\n[Profiler] Using Auto Benchmark inputs.")
+    print(
+        f"image={image}, payload='{payload}', public_key={pubkey}, "
+        f"private_key={privkey}"
+    )
+    signed_image = profiled_sign(image, payload, pubkey)
+    signed_image.save(str(output))
+    print(f"[Profiler] Signed image saved -> {output}")
+
+    print("[Profiler] Validating image...")
+    result = profiled_validate(str(output), privkey)
+    truncate_decrypted_entries(result)
+    pprint(result)
+
+    print("\n[Profiler] Line Profile Result")
+    profiler.print_stats()
+
+
 def _prompt_bool(message, default=False):
     suffix = " [Y/n]: " if default else " [y/N]: "
     choice = input(message + suffix).strip().lower()
@@ -128,7 +206,7 @@ def _prompt_bool(message, default=False):
 
 def main():
     choice = input(
-        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: File Path Test / 5: Memory API Test >> "
+        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: File Path Test / 5: Memory API Test / 6: Line Profiler >> "
     ).strip()
 
     if choice == "1":
@@ -183,6 +261,9 @@ def main():
 
     elif choice == "5":
         memory_roundtrip_demo()
+
+    elif choice == "6":
+        line_profile_demo()
 
     else:
         print("Invalid selection.")

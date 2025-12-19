@@ -1,6 +1,7 @@
 import base64
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from line_profiler import profile
 
 from .simpleImage import ImageInput, SimpleImage
 
@@ -15,6 +16,7 @@ def binaryToString(binaryCode):
     return "".join(string)
 
 
+@profile
 def readHiddenBit(imageInput: ImageInput):
     img = SimpleImage.open(imageInput)
     width, height = img.size
