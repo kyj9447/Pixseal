@@ -65,6 +65,23 @@ pip install -e ./pip_package
 
 Python 3.8+ is required. The only runtime dependency is `cryptography>=41.0.0`.
 
+### Building from source
+
+Cloning the repository and running the CLI/tests requires the Cython extension
+(`Pixseal.simpleImage_ext`) to be compiled. Wheels published to PyPI already
+bundle the compiled module, but a local checkout must be built manually:
+
+```bash
+cd Pixseal
+# optional: choose backend for testing (python fallback available)
+./build.sh  # regenerates the C extension and runs `python -m build`
+```
+
+`build.sh` invokes Cython and `gcc` (via `python3-config`) before producing the
+wheel/sdist artifacts. Ensure `cython`, `build`, and a working C toolchain are
+installed. If you skip this step, Pixseal falls back to the pure Python
+implementation, which works but is significantly slower.
+
 ## Usage
 
 ### Sign an image
