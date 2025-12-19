@@ -12,7 +12,10 @@ jobs:
 
       - name: Sync README for package
         shell: bash
-        run: cp "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/pip_package/README.md"
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            cp README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,7 +45,10 @@ jobs:
 
       - name: Sync README for package
         shell: bash
-        run: cp "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/pip_package/README.md"
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            cp README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -72,7 +78,10 @@ jobs:
 
       - name: Sync README for package
         shell: bash
-        run: cp "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/pip_package/README.md"
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            cp README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
