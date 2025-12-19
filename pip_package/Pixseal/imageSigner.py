@@ -2,7 +2,6 @@ import base64
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from line_profiler import profile
 
 try:
     from line_profiler import profile  # type: ignore

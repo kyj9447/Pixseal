@@ -72,6 +72,17 @@ Cloning the repository and running the CLI/tests requires the Cython extension
 bundle the compiled module, but a local checkout must be built manually:
 
 ```bash
+git clone https://github.com/kyj9447/Pixseal.git
+cd Pixseal
+python3 -m pip install -r requirements.txt
+./build.sh
+```
+
+Even after running `python3 -m pip install -r requirements.txt` you still need a
+working C toolchain (`gcc`) and the Python development headers exposed via
+`python3-config`; these come from your OS packages, not pip.
+
+```bash
 cd Pixseal
 # optional: choose backend for testing (python fallback available)
 ./build.sh  # regenerates the C extension and runs `python -m build`
@@ -142,6 +153,9 @@ print(report["validationReport"])
 3. Choose **3** to benchmark performance. It reads `original.png`, encrypts it with `RSA/public_key.pem`, and writes `signed_original.png`, printing the elapsed signing time. Then it reads `signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
 4. Choose **4** to test signing and validation with file-path input option.
 5. Choose **5** to test signing and validation with byte-stream input option.
+6. Choose **6** to run the optional line-profiler demo. It benchmarks `signImage` and `validateImage`, printing per-line timings when the script is executed through `kernprof`.
+
+Option **6** requires the optional dependency `line_profiler` and must be run via `kernprof -l testRun.py` so that `builtins.profile` is provided. Without `line_profiler` installed the script will continue to work, but the profiling option will display an informative message instead of running.
 ### Key management
 
 Generate a test RSA pair (PKCS#8) with OpenSSL:

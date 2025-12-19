@@ -1,7 +1,12 @@
 import base64
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from line_profiler import profile
+
+try:
+    from line_profiler import profile  # type: ignore
+except ImportError:  # pragma: no cover
+    def profile(func):
+        return func
 
 from .simpleImage import ImageInput, SimpleImage
 
