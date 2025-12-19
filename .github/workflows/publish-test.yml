@@ -25,7 +25,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-wheels-linux
-          path: pip_package/wheelhouse/*.whl
+          path: wheelhouse/*.whl
 
   build-wheels-windows:
     name: Build wheels on Windows
@@ -48,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-wheels-windows
-          path: pip_package/wheelhouse/*.whl
+          path: wheelhouse/*.whl
 
   build-sdist:
     name: Build sdist
@@ -93,7 +93,5 @@ jobs:
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # 1. URL 형식을 올바르게 수정 (https:// 포함)
-          repository-url: test.pypi.org
-          # 2. API 토큰 방식 사용 (사용자명은 자동으로 __token__이 사용됨)
+          repository-url: https://test.pypi.org/legacy/
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
