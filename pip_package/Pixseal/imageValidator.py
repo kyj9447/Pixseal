@@ -165,6 +165,18 @@ def decrypt_array(deduplicated, privKeyPath):
 
 # main
 def validateImage(imageInput: ImageInput, privKeyPath=None):
+    """
+    Extract the embedded payload from an image and optionally decrypt it.
+
+    Args:
+        imageInput: File path, bytes, or file-like object accepted by SimpleImage.
+        privKeyPath: Optional path to a PEM-encoded RSA private key used to
+            decrypt the extracted ciphertext.
+
+    Returns:
+        Dict with the most common extracted string, decrypted sequence, and
+        a validation report describing the sentinel checks and verdict.
+    """
     resultBinary = readHiddenBit(imageInput)
     resultString = binaryToString(resultBinary)
     splited = resultString.split("\n")
