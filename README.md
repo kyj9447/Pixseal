@@ -85,12 +85,6 @@ Even after running `python3 -m pip install -r requirements.txt` you still need a
 working C toolchain (`gcc`) and the Python development headers exposed via
 `python3-config`; these come from your OS packages, not pip.
 
-```bash
-cd Pixseal
-# optional: choose backend for testing (python fallback available)
-./build.sh  # regenerates the C extension and runs `python -m build`
-```
-
 `build.sh` invokes Cython and `gcc` (via `python3-config`) before producing the
 wheel/sdist artifacts. Ensure `cython`, `build`, and a working C toolchain are
 installed. If you skip this step, Pixseal falls back to the pure Python
