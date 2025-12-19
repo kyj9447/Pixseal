@@ -11,8 +11,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Sync README for package
+        working-directory: ${{ github.workspace }}
         shell: bash
-        run: cp README.md pip_package/README.md
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            rsync -a README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,8 +45,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Sync README for package
+        working-directory: ${{ github.workspace }}
         shell: bash
-        run: cp README.md pip_package/README.md
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            rsync -a README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,8 +79,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Sync README for package
+        working-directory: ${{ github.workspace }}
         shell: bash
-        run: cp README.md pip_package/README.md
+        run: |
+          if [ -f README.md ] && [ -d pip_package ]; then
+            rsync -a README.md pip_package/README.md
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
