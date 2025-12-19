@@ -1,0 +1,6 @@
+build>=1.0.0
+setuptools>=64
+wheel
+Cython>=3.0
+cryptography>=41.0.0
+line_profiler
