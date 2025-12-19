@@ -63,19 +63,22 @@ pip install Pixseal
 pip install -e ./pip_package
 ```
 
-Python 3.8+ is required. The only runtime dependency is `cryptography>=41.0.0`.
+Python 3.8+ is required. Wheels published to PyPI already include the compiled
+Cython extension, so `pip install Pixseal` automatically selects the right build
+for your operating system and CPU.
 
-### Building from source
+### Building from a git clone
 
-Cloning the repository and running the CLI/tests requires the Cython extension
-(`Pixseal.simpleImage_ext`) to be compiled. Wheels published to PyPI already
-bundle the compiled module, but a local checkout must be built manually:
+If you cloned the repository (or downloaded the source), run the included build
+script to create a wheel/SDist tailored to your environment:
 
 ```bash
 git clone https://github.com/kyj9447/Pixseal.git
 cd Pixseal
 python3 -m pip install -r requirements.txt
 ./build.sh
+# Install the freshly built wheel (optional)
+python3 -m pip install pip_package/dist/Pixseal-*.whl
 ```
 
 Even after running `python3 -m pip install -r requirements.txt` you still need a
