@@ -26,6 +26,6 @@
 ## [0.1.6]
 
 ### Fixed
-- **Performance Optimization** - Performance optimization for addHiddenBit() function
-- before : **Signing time: 6.395789 seconds** / Validating time: 2.561549 seconds
-- after : **Signing time: 4.637004 seconds** / Validating time: 2.557634 seconds (approx. 28% improved)
+- **Performance Optimization** – Further optimization of `addHiddenBit()` function
+- Benchmarked against **v0.1.5**
+- Signing time: **4.637004s → 4.064458s** (~12.3% improvement)
