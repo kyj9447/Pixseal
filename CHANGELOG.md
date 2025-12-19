@@ -29,3 +29,10 @@
 - **Performance Optimization** – Further optimization of `addHiddenBit()` function
 - Benchmarked against **v0.1.5**
 - Signing time: **4.637004s → 4.064458s** (~12.3% improvement)
+
+## [0.2.0]
+
+### Added
+- **Performance Optimization** - Cython backend for SimpleImage with automatic fallback to pure Python when the extension is unavailable.
+- before : Signing time: 4.032087 seconds / Validating time: 2.624742 seconds (pure Python)
+- after : **Signing time: 1.432151 seconds** / **Validating time: 0.856585 seconds** (approx. 66% total time reduction when using Cython backend)
