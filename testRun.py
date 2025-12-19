@@ -6,10 +6,6 @@ import builtins
 
 
 def _choose_backend():
-    backend = os.environ.get("PIXSEAL_SIMPLEIMAGE_BACKEND")
-    if backend in {"python", "cython"}:
-        print(f"[Init] Using SimpleImage backend: {backend}")
-        return
     choice = (
         input(
             "Select SimpleImage backend "
@@ -18,7 +14,7 @@ def _choose_backend():
         .strip()
         .lower()
     )
-    backend = "python" if choice == "2" or choice == "python" else "cython"
+    backend = "python" if choice in {"2", "python"} else "cython"
     os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
     print(f"[Init] SimpleImage backend set to: {backend}")
 

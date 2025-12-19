@@ -8,12 +8,13 @@ Use environment variable PIXSEAL_SIMPLEIMAGE_BACKEND to force a backend:
 from os import getenv
 
 _backend = getenv("PIXSEAL_SIMPLEIMAGE_BACKEND", "auto").lower()
+_loaded_module = "Pixseal.simpleImage_py"
 
 if _backend == "python":
-    from .simpleImage_py import SimpleImage, ImageInput  # type: ignore
+    from . import simpleImage_py as _impl  # type: ignore
 elif _backend == "cython":
     try:
-        from .simpleImage_ext import SimpleImage, ImageInput  # type: ignore
+        from . import simpleImage_ext as _impl  # type: ignore
     except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "Cython backend requested but Pixseal.simpleImage_ext is not available. "
@@ -21,8 +22,14 @@ elif _backend == "cython":
         ) from exc
 else:
     try:  # pragma: no cover
-        from .simpleImage_ext import SimpleImage, ImageInput  # type: ignore
+        from . import simpleImage_ext as _impl  # type: ignore
     except ImportError:  # pragma: no cover
-        from .simpleImage_py import SimpleImage, ImageInput  # type: ignore
+        from . import simpleImage_py as _impl  # type: ignore
+
+SimpleImage = _impl.SimpleImage  # type: ignore
+ImageInput = _impl.ImageInput  # type: ignore
+_loaded_module = _impl.__name__
+
+print(f"[SimpleImage] Loaded from: {_loaded_module}")
 
 __all__ = ["SimpleImage", "ImageInput"]
