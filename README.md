@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/Pixseal.png" width="200px"/>
+<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/Pixseal.png" width="200px"/>
 </p>
 
 # Pixseal
@@ -104,11 +104,11 @@ implementation, which works but is significantly slower.
 from Pixseal import signImage
 
 result = signImage(
-    imageInput="original.png",  # accepts a file path or raw PNG/BMP bytes
+    imageInput="assets/original.png",  # accepts a file path or raw PNG/BMP bytes
     hiddenString="!Validation:kyj9447@mailmail.com",
-    publicKeyPath="RSA/public_key.pem",  # omit for plain-text embedding
+    publicKeyPath="assets/RSA/public_key.pem",  # omit for plain-text embedding
 )
-result.save("signed_original.png")
+result.save("assets/signed_original.png")
 ```
 
 - The payload is looped if it runs out before the image ends, so even small files carry the full sentinel/payload/end pattern.
@@ -120,8 +120,8 @@ result.save("signed_original.png")
 from Pixseal import validateImage
 
 report = validateImage(
-    imageInput="signed_original.png",  # accepts a file path or raw PNG/BMP bytes
-    privKeyPath="RSA/private_key.pem",  # omit for plain-text payloads
+    imageInput="assets/signed_original.png",  # accepts a file path or raw PNG/BMP bytes
+    privKeyPath="assets/RSA/private_key.pem",  # omit for plain-text payloads
 )
 
 print(report["extractedString1"])
@@ -151,9 +151,9 @@ print(report["validationReport"])
 
 `python testRun.py` offers an interactive flow:
 
-1. Choose **1** to sign an image. It reads `original.png`, asks for a payload (default `!Validation:kyj9447@mailmail.com`), optionally encrypts with `RSA/public_key.pem`, and writes `signed_<name>.png`.
-2. Choose **2** to validate. It reads `signed_original.png`, optionally decrypts with `RSA/private_key.pem`, and prints both the extracted string and verdict.
-3. Choose **3** to benchmark performance. It reads `original.png`, encrypts it with `RSA/public_key.pem`, and writes `signed_original.png`, printing the elapsed signing time. Then it reads `signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
+1. Choose **1** to sign an image. It reads `assets/original.png`, asks for a payload (default `!Validation:kyj9447@mailmail.com`), optionally encrypts with `assets/RSA/public_key.pem`, and writes `assets/signed_<name>.png`.
+2. Choose **2** to validate. It reads `assets/signed_original.png`, optionally decrypts with `assets/RSA/private_key.pem`, and prints both the extracted string and verdict.
+3. Choose **3** to benchmark performance. It reads `assets/original.png`, encrypts it with `assets/RSA/public_key.pem`, and writes `assets/signed_original.png`, printing the elapsed signing time. Then it reads `assets/signed_original.png`, performs extraction/decryption/validation, and prints the elapsed validation time along with the total elapsed time.
 4. Choose **4** to test signing and validation with file-path input option.
 5. Choose **5** to test signing and validation with byte-stream input option.
 6. Choose **6** to run the optional line-profiler demo. It benchmarks `signImage` and `validateImage`, printing per-line timings when the script is executed through `kernprof`.
@@ -164,8 +164,8 @@ Option **6** requires the optional dependency `line_profiler` and must be run vi
 Generate a test RSA pair (PKCS#8) with OpenSSL:
 
 ```bash
-openssl genpkey -algorithm RSA -out RSA/private_key.pem -pkeyopt rsa_keygen_bits:2048
-openssl rsa -pubout -in RSA/private_key.pem -out RSA/public_key.pem
+openssl genpkey -algorithm RSA -out assets/RSA/private_key.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -pubout -in assets/RSA/private_key.pem -out assets/RSA/public_key.pem
 ```
 
 Point `publicKeyPath` / `privKeyPath` to these files.
@@ -182,7 +182,7 @@ Point `publicKeyPath` / `privKeyPath` to these files.
 
 | Original | Signed (`!Validation:kyj9447@mailmail.com`) |
 | --- | --- |
-| <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/original.png" width="400px"/> | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/signed_original.png" width="400px"/> |
+| <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/original.png" width="400px"/> | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/signed_original.png" width="400px"/> |
 
 Validation output excerpt:
 
@@ -208,7 +208,7 @@ Validation Report
 
 | Corrupted after signing |
 | --- |
-|<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/currupted_signed_original.png" width="400px"/>
+|<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/currupted_signed_original.png" width="400px"/>
 
 Validation output excerpt:
 
