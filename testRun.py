@@ -28,8 +28,8 @@ except ImportError:  # pragma: no cover
 
 from pip_package.Pixseal import signImage, validateImage
 
-DEFAULT_PUBLIC_KEY = "RSA/public_key.pem"
-DEFAULT_PRIVATE_KEY = "RSA/private_key.pem"
+DEFAULT_PUBLIC_KEY = "assets/RSA/public_key.pem"
+DEFAULT_PRIVATE_KEY = "assets/RSA/private_key.pem"
 
 
 def shorten(seq, max_items=6):
@@ -60,7 +60,7 @@ def truncate_decrypted_entries(result):
     result["decrypted"] = shorten(truncated)
 
 
-def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
+def sign_demo(image="assets/original.png", payload=None, encrypt=False, pubkey=None):
     payload = payload or "!Validation:kyj9447@mailmail.com"
     output = Path("signed_" + Path(image).name)
     selected_key = pubkey if encrypt else None
@@ -75,7 +75,7 @@ def sign_demo(image="original.png", payload=None, encrypt=False, pubkey=None):
         print("[Sign] plain-text payload injected")
 
 
-def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
+def validate_demo(image="assets/signed_original.png", decrypt=False, privkey=None):
     selected_key = privkey if decrypt else None
     if decrypt and not selected_key:
         selected_key = str(DEFAULT_PRIVATE_KEY)
@@ -95,12 +95,12 @@ def validate_demo(image="signed_original.png", decrypt=False, privkey=None):
 
 
 def file_roundtrip_demo(
-    image="original.png",
+    image="assets/original.png",
     payload="!Validation:kyj9447@mailmail.com",
     public_key=DEFAULT_PUBLIC_KEY,
     private_key=DEFAULT_PRIVATE_KEY,
 ):
-    output = Path("signed_path_test.png")
+    output = Path("assets/signed_path_test.png")
     print("\n[PathTest] Signing using file path input...")
     signed_from_path = signImage(image, payload, str(public_key))
     signed_from_path.save(str(output))
@@ -116,12 +116,12 @@ def file_roundtrip_demo(
 
 
 def memory_roundtrip_demo(
-    image="original.png",
+    image="assets/original.png",
     payload="!Validation:kyj9447@mailmail.com",
     public_key=DEFAULT_PUBLIC_KEY,
     private_key=DEFAULT_PRIVATE_KEY,
 ):
-    bytes_output = Path("signed_bytes_test.png")
+    bytes_output = Path("assets/signed_bytes_test.png")
     # ============ Test with File Stream Input ========
     print("\n[Memory] Loading image bytes from disk...")
     image_bytes = Path(image).read_bytes()
@@ -164,7 +164,7 @@ def line_profile_demo():
         print("Please rerun this script with kernprof and select option 6 again.")
         return
 
-    image = "original.png"
+    image = "assets/original.png"
     payload = "AutoTest123!"
     pubkey = str(DEFAULT_PUBLIC_KEY)
     privkey = str(DEFAULT_PRIVATE_KEY)
@@ -173,7 +173,7 @@ def line_profile_demo():
     profiled_sign = profiler(signImage)
     profiled_validate = profiler(validateImage)
 
-    output = Path("profiled_signed.png")
+    output = Path("assets/profiled_signed.png")
     print("\n[Profiler] Using Auto Benchmark inputs.")
     print(
         f"image={image}, payload='{payload}', public_key={pubkey}, "
@@ -206,7 +206,10 @@ def main():
     ).strip()
 
     if choice == "1":
-        image = input("Image file (default original.png): ").strip() or "original.png"
+        image = (
+            input("Image file (default assets/original.png): ").strip()
+            or "assets/original.png"
+        )
         msg = input("Payload to inject (Enter=default): ")
         encrypt = _prompt_bool("Encrypt with RSA public key?", default=True)
         pubkey = None
@@ -219,8 +222,8 @@ def main():
 
     elif choice == "2":
         image = (
-            input("Image to validate (default signed_original.png): ").strip()
-            or "signed_original.png"
+            input("Image to validate (default assets/signed_original.png): ").strip()
+            or "assets/signed_original.png"
         )
         decrypt = _prompt_bool("Decrypt with RSA private key?", default=True)
         privkey = None
@@ -236,7 +239,7 @@ def main():
 
         start = time.time()
 
-        image = "original.png"
+        image = "assets/original.png"
         msg = "AutoTest123!"
         encrypt = True
         sign_demo(image, msg, encrypt)
@@ -244,7 +247,7 @@ def main():
         check1 = time.time()
         print(f"Signing time: {check1 - start:.6f} seconds\n")
 
-        image2 = "signed_original.png"
+        image2 = "assets/signed_original.png"
         decrypt = True
         validate_demo(image2, decrypt)
 
