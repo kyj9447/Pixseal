@@ -80,6 +80,7 @@ compile_extension() {
 }
 
 cleanup() {
+  rm -f "$SRC_C"
   rm -rf "$PKG_DIR/Pixseal.egg-info"
 }
 
