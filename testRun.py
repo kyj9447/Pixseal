@@ -62,7 +62,7 @@ def truncate_decrypted_entries(result):
 
 def sign_demo(image="assets/original.png", payload=None, encrypt=False, pubkey=None):
     payload = payload or "!Validation:kyj9447@mailmail.com"
-    output = Path("signed_" + Path(image).name)
+    output = Path("assets/signed_" + Path(image).name)
     selected_key = pubkey if encrypt else None
     if encrypt and not selected_key:
         selected_key = str(DEFAULT_PUBLIC_KEY)
@@ -100,7 +100,7 @@ def file_roundtrip_demo(
     public_key=DEFAULT_PUBLIC_KEY,
     private_key=DEFAULT_PRIVATE_KEY,
 ):
-    output = Path("assets/signed_path_test.png")
+    output = Path("assets/signed_original.png")
     print("\n[PathTest] Signing using file path input...")
     signed_from_path = signImage(image, payload, str(public_key))
     signed_from_path.save(str(output))
@@ -121,7 +121,7 @@ def memory_roundtrip_demo(
     public_key=DEFAULT_PUBLIC_KEY,
     private_key=DEFAULT_PRIVATE_KEY,
 ):
-    bytes_output = Path("assets/signed_bytes_test.png")
+    bytes_output = Path("assets/signed_original.png")
     # ============ Test with File Stream Input ========
     print("\n[Memory] Loading image bytes from disk...")
     image_bytes = Path(image).read_bytes()
@@ -173,7 +173,7 @@ def line_profile_demo():
     profiled_sign = profiler(signImage)
     profiled_validate = profiler(validateImage)
 
-    output = Path("assets/profiled_signed.png")
+    output = Path("assets/signed_original.png")
     print("\n[Profiler] Using Auto Benchmark inputs.")
     print(
         f"image={image}, payload='{payload}', public_key={pubkey}, "
