@@ -10,6 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync README for package
+        shell: bash
+        run: cp README.md pip_package/README.md
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -36,6 +40,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync README for package
+        shell: bash
+        run: cp README.md pip_package/README.md
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -61,6 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Sync README for package
+        shell: bash
+        run: cp README.md pip_package/README.md
 
       - name: Set up Python
         uses: actions/setup-python@v5
