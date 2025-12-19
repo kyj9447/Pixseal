@@ -5,9 +5,9 @@ on:
 
 jobs:
   build-wheels-linux:
-    name: Build wheels on Debian (Linux)
+    name: Build wheels on manylinux (Linux)
     runs-on: ubuntu-latest
-    container: debian:stable
+    container: quay.io/pypa/manylinux_2_28_x86_64
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +23,8 @@ jobs:
 
       - name: Build wheels (Linux)
         working-directory: pip_package
+        env:
+          CIBW_PLATFORM: linux
         run: python -m cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheel artifacts
