@@ -4,3 +4,4 @@ token.txt
 dist.sh
 pip_package/*
 !pip_package/pyproject.toml
+!pip_package/Pixseal/
