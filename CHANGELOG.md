@@ -36,3 +36,8 @@
 - **Performance Optimization** - Cython backend for SimpleImage with automatic fallback to pure Python when the extension is unavailable.
 - before : Signing time: 4.032087 seconds / Validating time: 2.624742 seconds (pure Python)
 - after : **Signing time: 1.432151 seconds** / **Validating time: 0.856585 seconds** (approx. 66% total time reduction when using Cython backend)
+
+## [0.2.1]
+
+### Added
+- Github Actions workflow added.
