@@ -9,3 +9,4 @@ pip_package/Pixseal/*.so
 testRun.py.lprof
 publish.sh
 testroom/
+token-test.txt
