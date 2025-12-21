@@ -77,6 +77,7 @@ cdef tuple _loadPng(object stream):
     cdef int filterMethod = -1
     cdef int interlace = -1
     idatChunks: List[bytes] = []
+    chunk_records = []
 
     while True:
         chunkType, data = _readChunk(stream)
@@ -92,9 +93,13 @@ cdef tuple _loadPng(object stream):
                 filterMethod,
                 interlace,
             ) = struct.unpack(">IIBBBBB", data)
-        elif chunkType == b"IDAT":
+        if chunkType == b"IDAT":
             idatChunks.append(data)
-        elif chunkType == b"IEND":
+            chunk_records.append((chunkType, None, len(data)))
+        else:
+            chunk_records.append((chunkType, data, len(data)))
+
+        if chunkType == b"IEND":
             break
 
     if -1 in (width, height, bitDepth, colorType, compression, filterMethod, interlace):
@@ -146,7 +151,7 @@ cdef tuple _loadPng(object stream):
                 alpha[y * width + x] = recon_view[srcIndex + 3]
         prevRow = recon
         prev_view = recon_view
-    return width, height, pixels, bytesPerPixel, alpha
+    return width, height, pixels, bytesPerPixel, alpha, chunk_records, None
 
 
 def _readChunk(stream) -> Tuple[bytes, bytes]:
@@ -223,7 +228,13 @@ cdef tuple _loadBmp(object stream):
             pix_view[idx] = rowData[x * 3 + 2] & 0xFF
             pix_view[idx + 1] = rowData[x * 3 + 1] & 0xFF
             pix_view[idx + 2] = rowData[x * 3] & 0xFF
-    return width, absHeight, pixels, 3, None
+    metadata = {
+        "xppm": xPpm,
+        "yppm": yPpm,
+        "clrUsed": clrUsed,
+        "clrImportant": clrImportant,
+    }
+    return width, absHeight, pixels, 3, None, None, metadata
 
 
 def _makeChunk(chunkType: bytes, data: bytes) -> bytes:
@@ -282,10 +293,98 @@ def _writePng(path, int width, int height, object pixels, object alpha=None) -> 
         output.write(_makeChunk(b"IEND", b""))
 
 
-def _writeBmp(path, int width, int height, object pixels) -> None:
+def _split_idat_payload(bytes data, list lengths):
+    parts = []
+    offset = 0
+    total = len(data)
+    count = len(lengths)
+    cdef Py_ssize_t idx
+    for idx in range(count):
+        length = lengths[idx]
+        if offset >= total:
+            break
+        if length <= 0:
+            continue
+        if idx == count - 1:
+            take = total - offset
+        else:
+            take = length if length < total - offset else total - offset
+        if take <= 0:
+            continue
+        parts.append(data[offset : offset + take])
+        offset += take
+    if offset < total:
+        parts.append(data[offset:])
+    if not parts and total:
+        parts.append(data)
+    return parts
+
+
+def _writePngWithChunks(path, int width, int height, object pixels, object alpha, object chunks):
+    if not chunks:
+        _writePng(path, width, height, pixels, alpha)
+        return
+    expected = width * height * 3
+    if len(pixels) != expected:
+        raise ValueError("Pixel data length does not match image dimensions")
+    if alpha is not None and len(alpha) != width * height:
+        raise ValueError("Alpha channel length does not match image dimensions")
+    raw = bytearray()
+    if isinstance(pixels, bytearray):
+        pix_buf = pixels
+    else:
+        pix_buf = bytearray(pixels)
+    _write_png_bytes(width, height, pix_buf, alpha, raw)
+    compressed = zlib.compress(bytes(raw))
+    lengths = [length for chunkType, _, length in chunks if chunkType == b"IDAT"]
+    parts = _split_idat_payload(compressed, lengths)
+    if not parts:
+        parts = [compressed]
+
+    with open(path, "wb") as output:
+        output.write(PNG_SIGNATURE)
+        idat_written = False
+        for chunkType, data, _ in chunks:
+            if chunkType == b"IDAT":
+                if not idat_written:
+                    for part in parts:
+                        output.write(len(part).to_bytes(4, "big"))
+                        output.write(b"IDAT")
+                        output.write(part)
+                        crc = zlib.crc32(b"IDAT")
+                        crc = zlib.crc32(part, crc) & 0xFFFFFFFF
+                        output.write(struct.pack(">I", crc))
+                    idat_written = True
+                continue
+            payload = data if data is not None else b""
+            output.write(len(payload).to_bytes(4, "big"))
+            output.write(chunkType)
+            output.write(payload)
+            crc = zlib.crc32(chunkType)
+            crc = zlib.crc32(payload, crc) & 0xFFFFFFFF
+            output.write(struct.pack(">I", crc))
+        if not idat_written:
+            for part in parts:
+                output.write(len(part).to_bytes(4, "big"))
+                output.write(b"IDAT")
+                output.write(part)
+                crc = zlib.crc32(b"IDAT")
+                crc = zlib.crc32(part, crc) & 0xFFFFFFFF
+                output.write(struct.pack(">I", crc))
+
+
+def _writeBmp(path, int width, int height, object pixels, object meta=None) -> None:
     rowStride = ((width * 3 + 3) // 4) * 4
     pixelArraySize = rowStride * height
     fileSize = 14 + 40 + pixelArraySize
+    if meta is not None:
+        xppm = int(meta.get("xppm", 2835))
+        yppm = int(meta.get("yppm", 2835))
+        clrUsed = int(meta.get("clrUsed", 0))
+        clrImportant = int(meta.get("clrImportant", 0))
+    else:
+        xppm = yppm = 2835
+        clrUsed = clrImportant = 0
     if isinstance(pixels, bytearray):
         pix_buf = pixels
     else:
@@ -303,10 +402,10 @@ def _writeBmp(path, int width, int height, object pixels) -> None:
                 24,
                 0,
                 pixelArraySize,
-                2835,
-                2835,
-                0,
-                0,
+                xppm,
+                yppm,
+                clrUsed,
+                clrImportant,
             )
         )
         rowPad = rowStride - width * 3
@@ -330,8 +429,18 @@ cdef class SimpleImage:
     cdef public int height
     cdef public bytearray _pixels
     cdef public object _alpha
+    cdef public object _png_chunks
+    cdef public object _bmp_header
 
-    def __cinit__(self, int width, int height, object pixels, object alpha=None):
+    def __cinit__(
+        self,
+        int width,
+        int height,
+        object pixels,
+        object alpha=None,
+        object png_chunks=None,
+        object bmp_header=None,
+    ):
         cdef Py_ssize_t expected = width * height * 3
         if len(pixels) != expected:
             raise ValueError("Pixel data length does not match image dimensions")
@@ -350,6 +459,14 @@ cdef class SimpleImage:
                 self._alpha = bytearray(alpha)
         else:
             self._alpha = None
+        if png_chunks is not None:
+            self._png_chunks = list(png_chunks)
+        else:
+            self._png_chunks = None
+        if bmp_header is not None:
+            self._bmp_header = dict(bmp_header)
+        else:
+            self._bmp_header = None
 
     @property
     def size(self) -> Tuple[int, int]:
@@ -369,13 +486,29 @@ cdef class SimpleImage:
     def open(cls, source: ImageInput) -> "SimpleImage":
         if isinstance(source, (str, Path)):
             with open(source, "rb") as stream:
-                width, height, pixels, channels, alpha = cls._streamToImage(stream)
+                (
+                    width,
+                    height,
+                    pixels,
+                    channels,
+                    alpha,
+                    chunks,
+                    bmp_meta,
+                ) = cls._streamToImage(stream)
         elif isinstance(source, (bytes, bytearray)):
             stream = BytesIO(source)
-            width, height, pixels, channels, alpha = cls._streamToImage(stream)
+            (
+                width,
+                height,
+                pixels,
+                channels,
+                alpha,
+                chunks,
+                bmp_meta,
+            ) = cls._streamToImage(stream)
         else:
             raise TypeError("source must be a file path or raw bytes")
-        image = cls(width, height, pixels, alpha)
+        image = cls(width, height, pixels, alpha, chunks, bmp_meta)
         print(f"[SimpleImage] Opened image: {width}x{height}, channels={channels}")
         return image
 
@@ -402,14 +535,35 @@ cdef class SimpleImage:
 
     def copy(self) -> "SimpleImage":
         cdef object alpha_copy
+        cdef object chunk_copy
         if self._alpha is None:
             alpha_copy = None
         else:
             alpha_copy = self._alpha[:]
-        return SimpleImage(self.width, self.height, self._pixels[:], alpha_copy)
+        if self._png_chunks is None:
+            chunk_copy = None
+        else:
+            chunk_copy = self._png_chunks[:]
+        if self._bmp_header is None:
+            bmp_copy = None
+        else:
+            bmp_copy = dict(self._bmp_header)
+        return SimpleImage(self.width, self.height, self._pixels[:], alpha_copy, chunk_copy, bmp_copy)
 
     def save(self, path: str) -> None:
-        _writePng(path, self.width, self.height, self._pixels, self._alpha)
+        if self._png_chunks is not None:
+            _writePngWithChunks(
+                path,
+                self.width,
+                self.height,
+                self._pixels,
+                self._alpha,
+                self._png_chunks,
+            )
+        elif self._bmp_header is not None:
+            _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
+        else:
+            _writePng(path, self.width, self.height, self._pixels, self._alpha)
 
     def saveBmp(self, path: str) -> None:
-        _writeBmp(path, self.width, self.height, self._pixels)
+        _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
