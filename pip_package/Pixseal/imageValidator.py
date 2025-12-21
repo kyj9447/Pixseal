@@ -1,14 +1,29 @@
 import base64
-from cryptography.hazmat.primitives import serialization, hashes
+from typing import TYPE_CHECKING
+
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
+# profiler check
 try:
-    from line_profiler import profile  # type: ignore
-except ImportError:  # pragma: no cover
+    from line_profiler import profile
+except ImportError:
+
     def profile(func):
         return func
 
-from .simpleImage import ImageInput, SimpleImage
+
+# Dynamic typing
+from .simpleImage import (
+    ImageInput as _RuntimeImageInput,
+    SimpleImage as _RuntimeSimpleImage,
+)
+
+if TYPE_CHECKING:
+    from .simpleImage_py import ImageInput, SimpleImage
+else:
+    ImageInput = _RuntimeImageInput
+    SimpleImage = _RuntimeSimpleImage
 
 
 def binaryToString(binaryCode):
