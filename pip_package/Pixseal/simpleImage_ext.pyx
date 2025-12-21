@@ -114,6 +114,7 @@ cdef tuple _loadPng(object stream):
         raise ValueError("Malformed PNG image data")
 
     pixels = bytearray(width * height * 3)
+    alpha = bytearray(width * height) if bytesPerPixel == 4 else None
     prevRow = bytearray(rowLength)
     cdef uint8_t[:] prev_view = prevRow
     cdef uint8_t[:] pix_view = pixels
@@ -141,9 +142,11 @@ cdef tuple _loadPng(object stream):
             pix_view[destIndex] = recon_view[srcIndex]
             pix_view[destIndex + 1] = recon_view[srcIndex + 1]
             pix_view[destIndex + 2] = recon_view[srcIndex + 2]
+            if alpha is not None:
+                alpha[y * width + x] = recon_view[srcIndex + 3]
         prevRow = recon
         prev_view = recon_view
-    return width, height, pixels
+    return width, height, pixels, bytesPerPixel, alpha
 
 
 def _readChunk(stream) -> Tuple[bytes, bytes]:
@@ -220,7 +223,7 @@ cdef tuple _loadBmp(object stream):
             pix_view[idx] = rowData[x * 3 + 2] & 0xFF
             pix_view[idx + 1] = rowData[x * 3 + 1] & 0xFF
             pix_view[idx + 2] = rowData[x * 3] & 0xFF
-    return width, absHeight, pixels
+    return width, absHeight, pixels, 3, None
 
 
 def _makeChunk(chunkType: bytes, data: bytes) -> bytes:
@@ -233,24 +236,44 @@ def _makeChunk(chunkType: bytes, data: bytes) -> bytes:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef void _write_png_bytes(int width, int height, uint8_t[:] pixels, bytearray raw):
-    cdef int rowStride = width * 3
-    cdef int y, start
+cdef void _write_png_bytes(
+    int width,
+    int height,
+    uint8_t[:] pixels,
+    object alpha_obj,
+    bytearray raw,
+):
+    cdef bint has_alpha = alpha_obj is not None
+    cdef uint8_t[:] alpha_view
+    cdef int y, x, start, idx
     raw.clear()
+    if has_alpha:
+        alpha_view = alpha_obj
     for y in range(height):
         raw.append(0)
-        start = y * rowStride
-        raw.extend(pixels[start : start + rowStride])
+        start = y * width * 3
+        for x in range(width):
+            idx = start + x * 3
+            raw.append(pixels[idx])
+            raw.append(pixels[idx + 1])
+            raw.append(pixels[idx + 2])
+            if has_alpha:
+                raw.append(alpha_view[y * width + x])
 
 
-def _writePng(path, int width, int height, object pixels) -> None:
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+def _writePng(path, int width, int height, object pixels, object alpha=None) -> None:
+    expected = width * height * 3
+    if len(pixels) != expected:
+        raise ValueError("Pixel data length does not match image dimensions")
+    if alpha is not None and len(alpha) != width * height:
+        raise ValueError("Alpha channel length does not match image dimensions")
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6 if alpha is not None else 2, 0, 0, 0)
     raw = bytearray()
     if isinstance(pixels, bytearray):
-        pix_view = pixels
+        pix_buf = pixels
     else:
-        pix_view = bytearray(pixels)
-    _write_png_bytes(width, height, pix_view, raw)
+        pix_buf = bytearray(pixels)
+    _write_png_bytes(width, height, pix_buf, alpha, raw)
     compressed = zlib.compress(bytes(raw))
     with open(path, "wb") as output:
         output.write(PNG_SIGNATURE)
@@ -306,8 +329,9 @@ cdef class SimpleImage:
     cdef public int width
     cdef public int height
     cdef public bytearray _pixels
+    cdef public object _alpha
 
-    def __cinit__(self, int width, int height, object pixels):
+    def __cinit__(self, int width, int height, object pixels, object alpha=None):
         cdef Py_ssize_t expected = width * height * 3
         if len(pixels) != expected:
             raise ValueError("Pixel data length does not match image dimensions")
@@ -317,6 +341,15 @@ cdef class SimpleImage:
             self._pixels = bytearray(pixels)
         else:
             self._pixels = bytearray(pixels)
+        if alpha is not None:
+            if len(alpha) != width * height:
+                raise ValueError("Alpha channel length does not match image dimensions")
+            if isinstance(alpha, bytearray):
+                self._alpha = bytearray(alpha)
+            else:
+                self._alpha = bytearray(alpha)
+        else:
+            self._alpha = None
 
     @property
     def size(self) -> Tuple[int, int]:
@@ -336,13 +369,15 @@ cdef class SimpleImage:
     def open(cls, source: ImageInput) -> "SimpleImage":
         if isinstance(source, (str, Path)):
             with open(source, "rb") as stream:
-                width, height, pixels = cls._streamToImage(stream)
+                width, height, pixels, channels, alpha = cls._streamToImage(stream)
         elif isinstance(source, (bytes, bytearray)):
             stream = BytesIO(source)
-            width, height, pixels = cls._streamToImage(stream)
+            width, height, pixels, channels, alpha = cls._streamToImage(stream)
         else:
             raise TypeError("source must be a file path or raw bytes")
-        return cls(width, height, pixels)
+        image = cls(width, height, pixels, alpha)
+        print(f"[SimpleImage] Opened image: {width}x{height}, channels={channels}")
+        return image
 
     def getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:
         x, y = coords
@@ -366,10 +401,15 @@ cdef class SimpleImage:
         self._pixels[index + 2] = int(b) & 0xFF
 
     def copy(self) -> "SimpleImage":
-        return SimpleImage(self.width, self.height, self._pixels[:])
+        cdef object alpha_copy
+        if self._alpha is None:
+            alpha_copy = None
+        else:
+            alpha_copy = self._alpha[:]
+        return SimpleImage(self.width, self.height, self._pixels[:], alpha_copy)
 
     def save(self, path: str) -> None:
-        _writePng(path, self.width, self.height, self._pixels)
+        _writePng(path, self.width, self.height, self._pixels, self._alpha)
 
     def saveBmp(self, path: str) -> None:
         _writeBmp(path, self.width, self.height, self._pixels)
