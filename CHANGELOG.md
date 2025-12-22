@@ -41,3 +41,9 @@
 
 ### Added
 - Github Actions workflow added.
+
+## [0.2.2]
+
+### Added
+- Meta data reservation added (PNG, BMP)
+- Filter data reservation added (PNG)
