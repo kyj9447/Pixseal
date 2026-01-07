@@ -1,5 +1,7 @@
 from pathlib import Path
 import base64
+import hashlib
+import json
 from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -162,6 +164,25 @@ def stringCryptor(plaintext: str, public_key) -> str:
     return base64.b64encode(ciphertext).decode("ascii")
 
 
+PAYLOAD_FIELD = "payload"
+PUBLIC_KEY_FIELD = "publicKey"
+HASH_FIELD = "imageHash"
+
+
+def _build_payload_json(payload_cipher: str, public_key_text: str, image_hash: str) -> str:
+    payload_obj = {
+        PAYLOAD_FIELD: payload_cipher,
+        PUBLIC_KEY_FIELD: public_key_text,
+        HASH_FIELD: image_hash,
+    }
+    return json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=True)
+
+
+def _encrypted_placeholder_length(public_key) -> int:
+    key_bytes = (public_key.key_size + 7) // 8
+    return len(base64.b64encode(b"\x00" * key_bytes))
+
+
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
 def signImage(imageInput: ImageInput, hiddenString, publicKeyPath=None):
@@ -193,10 +214,33 @@ def signImage(imageInput: ImageInput, hiddenString, publicKeyPath=None):
 
         public_key = serialization.load_pem_public_key(pem_data)
 
+        public_key_text = pem_data.decode("ascii").strip()
+        payload_cipher = stringCryptor(hiddenString, public_key)
+        hash_placeholder = "0" * _encrypted_placeholder_length(public_key)
+        payload_placeholder = _build_payload_json(
+            payload_cipher, public_key_text, hash_placeholder
+        )
+        start_marker = stringCryptor("START-VALIDATION", public_key)
+        end_marker = stringCryptor("END-VALIDATION", public_key)
+        start_string = start_marker + "\n"
+        end_string = "\n" + end_marker
+
+        placeholder_binary = BinaryProvider(
+            hiddenString=payload_placeholder + "\n",
+            startString=start_string,
+            endString=end_string,
+        )
+        placeholder_image = addHiddenBit(imageInput, placeholder_binary)
+        image_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
+        hash_cipher = stringCryptor(image_hash, public_key)
+        if len(hash_cipher) != len(hash_placeholder):
+            raise ValueError("Encrypted hash length mismatch with placeholder")
+
+        payload_final = _build_payload_json(payload_cipher, public_key_text, hash_cipher)
         hiddenBinary = BinaryProvider(
-            hiddenString=stringCryptor(hiddenString, public_key) + "\n",
-            startString=stringCryptor("START-VALIDATION", public_key) + "\n",
-            endString="\n" + stringCryptor("END-VALIDATION", public_key),
+            hiddenString=payload_final + "\n",
+            startString=start_string,
+            endString=end_string,
         )
 
     else:  # Plain-text payload

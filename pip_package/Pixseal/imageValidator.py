@@ -1,8 +1,12 @@
 import base64
+import hashlib
+import json
 from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+
+from .imageSigner import BinaryProvider, addHiddenBit
 
 # profiler check
 try:
@@ -24,6 +28,65 @@ if TYPE_CHECKING:
 else:
     ImageInput = _RuntimeImageInput
     SimpleImage = _RuntimeSimpleImage
+
+
+PAYLOAD_FIELD = "payload"
+PUBLIC_KEY_FIELD = "publicKey"
+HASH_FIELD = "imageHash"
+
+
+def _build_payload_json(payload_cipher: str, public_key_text: str, image_hash: str) -> str:
+    payload_obj = {
+        PAYLOAD_FIELD: payload_cipher,
+        PUBLIC_KEY_FIELD: public_key_text,
+        HASH_FIELD: image_hash,
+    }
+    return json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=True)
+
+
+def _is_json_like(value: str) -> bool:
+    return value.lstrip().startswith("{")
+
+
+def _extract_payload_json(deduplicated):
+    for value in deduplicated:
+        if not _is_json_like(value):
+            continue
+        if not value.rstrip().endswith("}"):
+            continue
+        try:
+            payload_obj = json.loads(value)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload_obj, dict):
+            continue
+        if not all(
+            key in payload_obj for key in (PAYLOAD_FIELD, PUBLIC_KEY_FIELD, HASH_FIELD)
+        ):
+            continue
+        return value, payload_obj
+    return None, None
+
+
+def _load_private_key(privKeyPath):
+    with open(privKeyPath, "rb") as key_file:
+        return serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+        )
+
+
+def _decrypt_ciphertext(cipher_text: str, private_key) -> str:
+    cipher_bytes = base64.b64decode(cipher_text)
+    plain_bytes = private_key.decrypt(
+        cipher_bytes,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+    return plain_bytes.decode("utf-8")
 
 
 def binaryToString(binaryCode):
@@ -100,7 +163,9 @@ def tailCheck(arr: list[str]):
     return full_cipher.startswith(truncated_cipher)
 
 
-def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
+def buildValidationReport(
+    decrypted, tailCheck: bool, skipPlain: bool = False, hashCheck=None
+):
     # Length after deduplication/decryption
     arrayLength = len(decrypted)
 
@@ -123,6 +188,12 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
         tailCheckResult = tailCheck
         checkList.append(tailCheckResult)
 
+    if hashCheck is None:
+        hashCheckResult = "Not Checked"
+    else:
+        hashCheckResult = hashCheck
+        checkList.append(hashCheckResult)
+
     # Overall verdict requires every check to pass
     verdict = all(checkList)
 
@@ -133,6 +204,7 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
         "endCheck": endCheck,
         "isDecrypted": isDecrypted,
         "tailCheckResult": tailCheckResult,
+        "hashCheckResult": hashCheckResult,
         "verdict": verdict,
     }
 
@@ -144,45 +216,43 @@ def buildValidationReport(decrypted, tailCheck: bool, skipPlain: bool = False):
     return result
 
 
-def decrypt_array(deduplicated, privKeyPath):
-    # Load PEM private key
-    with open(privKeyPath, "rb") as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-        )
-
+def decrypt_array(deduplicated, private_key):
     decrypted = []
-    skippedPlainCount = 0
     decryptError = False
     for item in deduplicated:
-        if item.endswith("=="):
-            try:
-                cipher_bytes = base64.b64decode(item)
-                plain_bytes = private_key.decrypt(
-                    cipher_bytes,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None,
-                    ),
-                )
-                decrypted.append(plain_bytes.decode("utf-8"))
-            except Exception as exc:
-                print(exc)
-                decryptError = True
-                decrypted.append(item)
-        else:
-            skippedPlainCount += 1
+        if not item or _is_json_like(item):
+            decrypted.append(item)
+            continue
+        try:
+            decrypted.append(_decrypt_ciphertext(item, private_key))
+        except Exception as exc:
+            print(exc)
+            decryptError = True
             decrypted.append(item)
 
-    expectedPlainCount = 0
-    if len(deduplicated) == 4:
-        expectedPlainCount = 1
-
-    skippedPlain = decryptError or skippedPlainCount != expectedPlainCount
+    skippedPlain = decryptError
 
     return decrypted, skippedPlain
+
+
+def _compute_placeholder_hash(
+    imageInput,
+    start_marker: str,
+    end_marker: str,
+    payload_cipher: str,
+    public_key_text: str,
+    hash_placeholder: str,
+) -> str:
+    payload_placeholder = _build_payload_json(
+        payload_cipher, public_key_text, hash_placeholder
+    )
+    hiddenBinary = BinaryProvider(
+        hiddenString=payload_placeholder + "\n",
+        startString=start_marker + "\n",
+        endString="\n" + end_marker,
+    )
+    placeholder_image = addHiddenBit(imageInput, hiddenBinary)
+    return hashlib.sha256(placeholder_image._pixels).hexdigest()
 
 
 # main
@@ -204,18 +274,77 @@ def validateImage(imageInput: ImageInput, privKeyPath=None):
     splited = resultString.split("\n")
     deduplicated, most_common = deduplicate(splited)
 
-    if privKeyPath:
-        decrypted, skippedPlain = decrypt_array(deduplicated, privKeyPath)
+    payload_line, payload_obj = _extract_payload_json(deduplicated)
+    private_key = _load_private_key(privKeyPath) if privKeyPath else None
+
+    if private_key:
+        decrypted, skippedPlain = decrypt_array(deduplicated, private_key)
     else:
         decrypted = deduplicated
         skippedPlain = False
 
+    payload_plain = None
+    hash_plain = None
+    public_key_text = None
+    computed_hash = None
+    hash_check = None
+
+    if payload_obj:
+        payload_cipher = payload_obj.get(PAYLOAD_FIELD)
+        public_key_text = payload_obj.get(PUBLIC_KEY_FIELD)
+        hash_cipher = payload_obj.get(HASH_FIELD)
+
+        if (
+            isinstance(payload_cipher, str)
+            and isinstance(public_key_text, str)
+            and isinstance(hash_cipher, str)
+            and hash_cipher
+            and deduplicated
+        ):
+            hash_placeholder = "0" * len(hash_cipher)
+            start_marker = deduplicated[0]
+            end_marker = deduplicated[-1]
+            computed_hash = _compute_placeholder_hash(
+                imageInput,
+                start_marker,
+                end_marker,
+                payload_cipher,
+                public_key_text,
+                hash_placeholder,
+            )
+            if private_key:
+                try:
+                    hash_plain = _decrypt_ciphertext(hash_cipher, private_key).strip()
+                except Exception as exc:
+                    print(exc)
+            if hash_plain:
+                hash_check = hash_plain.lower() == computed_hash
+
+        if private_key and isinstance(payload_cipher, str):
+            try:
+                payload_plain = _decrypt_ciphertext(payload_cipher, private_key)
+            except Exception as exc:
+                print(exc)
+
+        if payload_line and payload_plain is not None and payload_line in deduplicated:
+            payload_index = deduplicated.index(payload_line)
+            decrypted[payload_index] = payload_plain
+
+    extracted_string = payload_line or most_common
+
     report = buildValidationReport(
-        decrypted=decrypted, tailCheck=tailCheck(deduplicated), skipPlain=skippedPlain
+        decrypted=decrypted,
+        tailCheck=tailCheck(deduplicated),
+        skipPlain=skippedPlain,
+        hashCheck=hash_check,
     )
 
     return {
-        "extractedString": decrypt_array({most_common}, privKeyPath)[0][0],
+        "extractedString": extracted_string,
         "decrypted": decrypted,
+        "payload": payload_plain,
+        "publicKey": public_key_text,
+        "imageHash": hash_plain,
+        "computedImageHash": computed_hash,
         "validationReport": report,
     }
