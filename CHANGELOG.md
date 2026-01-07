@@ -1,3 +1,10 @@
+### Test Environment
+All tests were conducted in the following environment:
+- CPU: Ryzen 7 5700G
+- RAM: 32GB DDR4
+- OS: Ubuntu 24.04 LTS
+- Test images: PNG (2000×1500)
+
 ## [0.1.2]
 
 ### Added
@@ -47,3 +54,11 @@
 ### Added
 - Meta data reservation added (PNG, BMP)
 - Filter data reservation added (PNG)
+
+## [0.3.0]
+- Added binding between injected data and the target image, neutralizing extract-and-reinject attacks
+- Minor performance overhead
+
+### Changed
+- Added image hashing and verification key injection
+- Updated payload structure to include payload + public key + image hash
