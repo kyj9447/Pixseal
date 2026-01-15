@@ -150,101 +150,128 @@ def addHiddenBit(imageInput: ImageInput, hiddenBinary: BinaryProvider):
     return img
 
 
-def stringCryptor(plaintext: str, public_key) -> str:
-
-    ciphertext = public_key.encrypt(
+# Helper function to sign a string with RSA private key
+def stringSigner(plaintext: str, private_key) -> str:
+    signature = private_key.sign(
         plaintext.encode("utf-8"),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH,
         ),
+        hashes.SHA256(),
     )
+    return base64.b64encode(signature).decode("ascii")
 
-    return base64.b64encode(ciphertext).decode("ascii")
+# Helper function to calculate signature placeholder
+def make_signature_placeholder_from_private_key(private_key) -> str:
+    """
+    RSA private_key로 생성되는 Base64 서명 문자열과
+    정확히 동일한 길이의 placeholder를 생성한다.
+    """
+    key_bytes = (private_key.key_size + 7) // 8
+    signature_b64_len = len(base64.b64encode(b"\x00" * key_bytes))
+    return "0" * signature_b64_len
 
-
+# JSON field names
 PAYLOAD_FIELD = "payload"
 PUBLIC_KEY_FIELD = "publicKey"
 HASH_FIELD = "imageHash"
 
 
-def _build_payload_json(payload_cipher: str, public_key_text: str, image_hash: str) -> str:
+# Helper function for building the JSON payload
+def _build_payload_json(payload: str, key: str, hash: str) -> str:
     payload_obj = {
-        PAYLOAD_FIELD: payload_cipher,
-        PUBLIC_KEY_FIELD: public_key_text,
-        HASH_FIELD: image_hash,
+        PAYLOAD_FIELD: payload,
+        PUBLIC_KEY_FIELD: key,
+        HASH_FIELD: hash,
     }
     return json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=True)
 
 
-def _encrypted_placeholder_length(public_key) -> int:
-    key_bytes = (public_key.key_size + 7) // 8
-    return len(base64.b64encode(b"\x00" * key_bytes))
-
-
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
-def signImage(imageInput: ImageInput, hiddenString, publicKeyPath=None):
+def signImage(imageInput: ImageInput,
+              hiddenString: str,
+              privateKeyPath: str = None):
     """
     Embed a payload into an image using the parity-based steganography scheme.
 
     Args:
         imageInput: File path, bytes, or file-like object accepted by SimpleImage.
         hiddenString: Text payload that should be written into the image.
-        publicKeyPath: Optional path to a PEM-encoded RSA public key used to
-            encrypt the payload and sentinel markers before embedding.
+        privateKeyPath: Optional path to a PEM-encoded RSA private key used to
+            sign the payload and sentinel markers before embedding.
 
     Returns:
         SimpleImage instance whose pixels include the signed payload.
 
     Raises:
-        FileNotFoundError: If a public key path is provided but the file is missing.
-        ValueError: If the file is not a valid PEM public key.
+        FileNotFoundError: If a private key path is provided but the file is missing.
+        ValueError: If the file is not a valid PEM private key.
     """
 
-    if publicKeyPath:  # When encryption key is supplied
-        key_path = Path(publicKeyPath)
+    if privateKeyPath:  # When signing key is supplied
+        key_path = Path(privateKeyPath)
         if not key_path.is_file():
-            raise FileNotFoundError(f"Public key file not found: {publicKeyPath}")
+            raise FileNotFoundError(
+                f"Private key file not found: {privateKeyPath}")
 
         pem_data = key_path.read_bytes()
-        if b"BEGIN PUBLIC KEY" not in pem_data:
-            raise ValueError("Provided file does not contain a valid public key")
+        if b"BEGIN PRIVATE KEY" not in pem_data:
+            raise ValueError(
+                "Provided file does not contain a valid private key")
 
-        public_key = serialization.load_pem_public_key(pem_data)
+        private_key = serialization.load_pem_private_key(pem_data,
+                                                         password=None)
+        public_key = private_key.public_key()
 
-        public_key_text = pem_data.decode("ascii").strip()
-        payload_cipher = stringCryptor(hiddenString, public_key)
-        hash_placeholder = "0" * _encrypted_placeholder_length(public_key)
-        payload_placeholder = _build_payload_json(
-            payload_cipher, public_key_text, hash_placeholder
-        )
-        start_marker = stringCryptor("START-VALIDATION", public_key)
-        end_marker = stringCryptor("END-VALIDATION", public_key)
+        # Sign the payload and prepare the JSON structure
+        payload_cipher = stringSigner(hiddenString, private_key)
+        public_key_text = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("utf-8")
+        hash_placeholder = make_signature_placeholder_from_private_key(private_key)
+        payload_placeholder = _build_payload_json(payload_cipher,
+                                                  public_key_text,
+                                                  hash_placeholder)
+
+        # Sign the start/end markers
+        start_marker = stringSigner("START-VALIDATION", private_key)
+        end_marker = stringSigner("END-VALIDATION", private_key)
         start_string = start_marker + "\n"
         end_string = "\n" + end_marker
 
+        # 1st injection: payload with placeholder
         placeholder_binary = BinaryProvider(
             hiddenString=payload_placeholder + "\n",
             startString=start_string,
             endString=end_string,
         )
         placeholder_image = addHiddenBit(imageInput, placeholder_binary)
-        image_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
-        hash_cipher = stringCryptor(image_hash, public_key)
-        if len(hash_cipher) != len(hash_placeholder):
-            raise ValueError("Encrypted hash length mismatch with placeholder")
 
-        payload_final = _build_payload_json(payload_cipher, public_key_text, hash_cipher)
+        # Calculate the image hash and sign it
+        image_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
+        hash_cipher = stringSigner(image_hash, private_key)
+        if len(hash_cipher) != len(hash_placeholder):
+            raise ValueError("Signed hash length mismatch with placeholder"+
+                             "\nhash len: " + str(len(hash_cipher)) +
+                             "placeholder len: " + str(len(hash_placeholder)))
+
+        # Prepare the final payload with the calculated hash
+        payload_final = _build_payload_json(payload_cipher, public_key_text,
+                                            hash_cipher)
         hiddenBinary = BinaryProvider(
             hiddenString=payload_final + "\n",
             startString=start_string,
             endString=end_string,
         )
+        print("payload_final\n", payload_final)
 
     else:  # Plain-text payload
         hiddenBinary = BinaryProvider(hiddenString + "\n")
 
+    # Final injection: final payload
     signedImage = addHiddenBit(imageInput, hiddenBinary)
+
     return signedImage

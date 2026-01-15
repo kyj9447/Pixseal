@@ -4,16 +4,13 @@ import os
 import time
 import builtins
 
+from Pixseal import SimpleImage
+
 
 def _choose_backend():
-    choice = (
-        input(
-            "Select SimpleImage backend "
-            "(Enter=cython / 1=cython / 2=python fallback): "
-        )
-        .strip()
-        .lower()
-    )
+    choice = (input(
+        "Select SimpleImage backend "
+        "(Enter=cython / 1=cython / 2=python fallback): ").strip().lower())
     backend = "python" if choice in {"2", "python"} else "cython"
     os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
     print(f"[Init] SimpleImage backend set to: {backend}")
@@ -32,6 +29,7 @@ DEFAULT_PUBLIC_KEY = "assets/RSA/public_key.pem"
 DEFAULT_PRIVATE_KEY = "assets/RSA/private_key.pem"
 
 
+# Helper to shorten long lists for display
 def shorten(seq, max_items=6):
     if len(seq) <= max_items:
         return seq
@@ -40,6 +38,7 @@ def shorten(seq, max_items=6):
     return head + ["..."] + tail
 
 
+# Helper to truncate long decrypted entries for display
 def truncate_decrypted_entries(result):
     decrypted = result.get("decrypted", [])
     if not decrypted:
@@ -50,7 +49,8 @@ def truncate_decrypted_entries(result):
     max_len = len(most_common)
     truncated = []
     for value in decrypted:
-        if value in ("START-VALIDATION", "END-VALIDATION") or value == most_common:
+        if value in ("START-VALIDATION",
+                     "END-VALIDATION") or value == most_common:
             truncated.append(value)
             continue
         if len(value) > max_len:
@@ -60,35 +60,25 @@ def truncate_decrypted_entries(result):
     result["decrypted"] = shorten(truncated)
 
 
-def sign_demo(image="assets/original.png", payload=None, encrypt=False, pubkey=None):
+def sign_demo(image="assets/original.png", payload=None, privkey=None):
     payload = payload or "!Validation:kyj9447@mailmail.com"
     output = Path("assets/signed_" + Path(image).name)
-    selected_key = pubkey if encrypt else None
-    if encrypt and not selected_key:
-        selected_key = str(DEFAULT_PUBLIC_KEY)
-    signed = signImage(image, payload, selected_key)
+    signed: SimpleImage = signImage(image, payload, privkey)
     signed.save(str(output))
     print(f"[Sign] saved -> {output}")
-    if selected_key:
-        print(f"[Sign] encrypted with public key: {selected_key}")
+    if privkey:
+        print(f"[Sign] signed with private key: {privkey}")
     else:
         print("[Sign] plain-text payload injected")
 
 
-def validate_demo(image="assets/signed_original.png", decrypt=False, privkey=None):
-    selected_key = privkey if decrypt else None
-    if decrypt and not selected_key:
-        selected_key = str(DEFAULT_PRIVATE_KEY)
+def validate_demo(image="assets/signed_original.png"):
 
-    result = validateImage(image, selected_key)
+    result = validateImage(image)
     truncate_decrypted_entries(result)
     report = result["validationReport"]
     print("[Validate] verdict:", report["verdict"])
     print("[Validate] extracted string:", result.get("extractedString"))
-    if selected_key:
-        print(f"[Validate] decrypted with private key: {selected_key}")
-    else:
-        print("[Validate] used plain-text extraction")
 
     print("\nValidation Report\n")
     pprint(result)
@@ -144,24 +134,22 @@ def memory_roundtrip_demo(
 
 def line_profile_demo():
     if LineProfiler is None:
-        print(
-            "line_profiler is not installed. "
-            "Please run `pip install line_profiler` and try again."
-        )
+        print("line_profiler is not installed. "
+              "Please run `pip install line_profiler` and try again.")
         return
 
     builtin_profiler = getattr(builtins, "profile", None)
-    is_kernprof = (
-        builtin_profiler is not None
-        and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0]
-        == "line_profiler"
-    )
+    is_kernprof = (builtin_profiler is not None and getattr(
+        builtin_profiler, "__class__", object).__module__.split(".")[0]
+                   == "line_profiler")
 
     if not is_kernprof:
         print(
             "Line profiling is only available when running via `kernprof -l testRun.py`."
         )
-        print("Please rerun this script with kernprof and select option 6 again.")
+        print(
+            "Please rerun this script with kernprof and select option 6 again."
+        )
         return
 
     image = "assets/original.png"
@@ -175,10 +163,8 @@ def line_profile_demo():
 
     output = Path("assets/signed_original.png")
     print("\n[Profiler] Using Auto Benchmark inputs.")
-    print(
-        f"image={image}, payload='{payload}', public_key={pubkey}, "
-        f"private_key={privkey}"
-    )
+    print(f"image={image}, payload='{payload}', public_key={pubkey}, "
+          f"private_key={privkey}")
     signed_image = profiled_sign(image, payload, pubkey)
     signed_image.save(str(output))
     print(f"[Profiler] Signed image saved -> {output}")
@@ -206,31 +192,26 @@ def main():
     ).strip()
 
     if choice == "1":
-        image = (
-            input("Image file (default assets/original.png): ").strip()
-            or "assets/original.png"
-        )
+        image = (input("Image file (default assets/original.png): ").strip()
+                 or "assets/original.png")
         msg = input("Payload to inject (Enter=default): ")
         encrypt = _prompt_bool("Encrypt with RSA public key?", default=True)
         pubkey = None
         if encrypt:
             pubkey_input = input(
-                f"Public key path (default {DEFAULT_PUBLIC_KEY}): "
-            ).strip()
+                f"Public key path (default {DEFAULT_PUBLIC_KEY}): ").strip()
             pubkey = pubkey_input or None
         sign_demo(image, msg or None, encrypt, pubkey)
 
     elif choice == "2":
         image = (
-            input("Image to validate (default assets/signed_original.png): ").strip()
-            or "assets/signed_original.png"
-        )
+            input("Image to validate (default assets/signed_original.png): "
+                  ).strip() or "assets/signed_original.png")
         decrypt = _prompt_bool("Decrypt with RSA private key?", default=True)
         privkey = None
         if decrypt:
             privkey_input = input(
-                f"Private key path (default {DEFAULT_PRIVATE_KEY}): "
-            ).strip()
+                f"Private key path (default {DEFAULT_PRIVATE_KEY}): ").strip()
             privkey = privkey_input or None
         validate_demo(image, decrypt, privkey)
 
@@ -241,15 +222,14 @@ def main():
 
         image = "assets/original.png"
         msg = "AutoTest123!"
-        encrypt = True
-        sign_demo(image, msg, encrypt)
+        key = str(DEFAULT_PRIVATE_KEY)
+        sign_demo(image, msg, key)
 
         check1 = time.time()
         print(f"Signing time: {check1 - start:.6f} seconds\n")
 
         image2 = "assets/signed_original.png"
-        decrypt = True
-        validate_demo(image2, decrypt)
+        validate_demo(image2)
 
         check2 = time.time()
         print(f"Validating time: {check2 - check1:.6f} seconds\n")
