@@ -1,10 +1,12 @@
 import base64
 import hashlib
 import json
+from pprint import pprint
 from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from .imageSigner import BinaryProvider, addHiddenBit
 
@@ -29,13 +31,13 @@ else:
     ImageInput = _RuntimeImageInput
     SimpleImage = _RuntimeSimpleImage
 
-
 PAYLOAD_FIELD = "payload"
 PUBLIC_KEY_FIELD = "publicKey"
 HASH_FIELD = "imageHash"
 
 
-def _build_payload_json(payload_cipher: str, public_key_text: str, image_hash: str) -> str:
+def _build_payload_json(payload_cipher: str, public_key_text: str,
+                        image_hash: str) -> str:
     payload_obj = {
         PAYLOAD_FIELD: payload_cipher,
         PUBLIC_KEY_FIELD: public_key_text,
@@ -60,25 +62,28 @@ def _extract_payload_json(deduplicated):
             continue
         if not isinstance(payload_obj, dict):
             continue
-        if not all(
-            key in payload_obj for key in (PAYLOAD_FIELD, PUBLIC_KEY_FIELD, HASH_FIELD)
-        ):
+        if not all(key in payload_obj
+                   for key in (PAYLOAD_FIELD, PUBLIC_KEY_FIELD, HASH_FIELD)):
             continue
         return value, payload_obj
     return None, None
 
 
-def _load_private_key(privKeyPath):
-    with open(privKeyPath, "rb") as key_file:
-        return serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-        )
+def _load_decrypt_key(key_text: str):
+    if not isinstance(key_text, str):
+        return None
+    if ("BEGIN PUBLIC KEY" not in key_text
+            and "BEGIN RSA PUBLIC KEY" not in key_text):
+        return None
+    try:
+        return serialization.load_pem_public_key(key_text.encode("utf-8"), )
+    except (ValueError, TypeError):
+        return None
 
 
-def _decrypt_ciphertext(cipher_text: str, private_key) -> str:
+def _decrypt_ciphertext(cipher_text: str, public_key: RSAPublicKey) -> str:
     cipher_bytes = base64.b64decode(cipher_text)
-    plain_bytes = private_key.decrypt(
+    plain_bytes = public_key.verify(
         cipher_bytes,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -92,7 +97,7 @@ def _decrypt_ciphertext(cipher_text: str, private_key) -> str:
 def binaryToString(binaryCode):
     string = []
     for i in range(0, len(binaryCode), 8):
-        byte = binaryCode[i : i + 8]
+        byte = binaryCode[i:i + 8]
         decimal = int(byte, 2)
         character = chr(decimal)
         string.append(character)
@@ -163,9 +168,10 @@ def tailCheck(arr: list[str]):
     return full_cipher.startswith(truncated_cipher)
 
 
-def buildValidationReport(
-    decrypted, tailCheck: bool, skipPlain: bool = False, hashCheck=None
-):
+def buildValidationReport(decrypted,
+                          tailCheck: bool,
+                          skipPlain: bool = False,
+                          hashCheck=None):
     # Length after deduplication/decryption
     arrayLength = len(decrypted)
 
@@ -178,7 +184,8 @@ def buildValidationReport(
 
     # 4. Determine whether payload was successfully decrypted
     decryptedPayload = decrypted[1] if len(decrypted) > 1 else ""
-    isDecrypted = bool(decryptedPayload) and not decryptedPayload.endswith("==")
+    isDecrypted = bool(
+        decryptedPayload) and not decryptedPayload.endswith("==")
 
     checkList = [lengthCheck, startCheck, endCheck, isDecrypted]
     # 5. Parse tailCheck result
@@ -216,7 +223,7 @@ def buildValidationReport(
     return result
 
 
-def decrypt_array(deduplicated, private_key):
+def decrypt_array(deduplicated: list[str], public_key: RSAPublicKey):
     decrypted = []
     decryptError = False
     for item in deduplicated:
@@ -224,7 +231,7 @@ def decrypt_array(deduplicated, private_key):
             decrypted.append(item)
             continue
         try:
-            decrypted.append(_decrypt_ciphertext(item, private_key))
+            decrypted.append(_decrypt_ciphertext(item, public_key))
         except Exception as exc:
             print(exc)
             decryptError = True
@@ -243,9 +250,8 @@ def _compute_placeholder_hash(
     public_key_text: str,
     hash_placeholder: str,
 ) -> str:
-    payload_placeholder = _build_payload_json(
-        payload_cipher, public_key_text, hash_placeholder
-    )
+    payload_placeholder = _build_payload_json(payload_cipher, public_key_text,
+                                              hash_placeholder)
     hiddenBinary = BinaryProvider(
         hiddenString=payload_placeholder + "\n",
         startString=start_marker + "\n",
@@ -256,13 +262,13 @@ def _compute_placeholder_hash(
 
 
 # main
-def validateImage(imageInput: ImageInput, privKeyPath=None):
+def validateImage(imageInput: ImageInput):
     """
     Extract the embedded payload from an image and optionally decrypt it.
 
     Args:
         imageInput: File path, bytes, or file-like object accepted by SimpleImage.
-        privKeyPath: Optional path to a PEM-encoded RSA private key used to
+        privKeyPath: Optional path to a PEM-encoded RSA public key used to
             decrypt the extracted ciphertext.
 
     Returns:
@@ -275,17 +281,18 @@ def validateImage(imageInput: ImageInput, privKeyPath=None):
     deduplicated, most_common = deduplicate(splited)
 
     payload_line, payload_obj = _extract_payload_json(deduplicated)
-    private_key = _load_private_key(privKeyPath) if privKeyPath else None
+    public_key_text = payload_obj.get(
+        PUBLIC_KEY_FIELD) if payload_obj else None
+    public_key: RSAPublicKey = _load_decrypt_key(public_key_text)
 
-    if private_key:
-        decrypted, skippedPlain = decrypt_array(deduplicated, private_key)
+    if public_key:
+        decrypted, skippedPlain = decrypt_array(deduplicated, public_key)
     else:
         decrypted = deduplicated
         skippedPlain = False
 
     payload_plain = None
     hash_plain = None
-    public_key_text = None
     computed_hash = None
     hash_check = None
 
@@ -294,13 +301,10 @@ def validateImage(imageInput: ImageInput, privKeyPath=None):
         public_key_text = payload_obj.get(PUBLIC_KEY_FIELD)
         hash_cipher = payload_obj.get(HASH_FIELD)
 
-        if (
-            isinstance(payload_cipher, str)
-            and isinstance(public_key_text, str)
-            and isinstance(hash_cipher, str)
-            and hash_cipher
-            and deduplicated
-        ):
+        if (isinstance(payload_cipher, str)
+                and isinstance(public_key_text, str)
+                and isinstance(hash_cipher, str) and hash_cipher
+                and deduplicated):
             hash_placeholder = "0" * len(hash_cipher)
             start_marker = deduplicated[0]
             end_marker = deduplicated[-1]
@@ -312,17 +316,18 @@ def validateImage(imageInput: ImageInput, privKeyPath=None):
                 public_key_text,
                 hash_placeholder,
             )
-            if private_key:
+            if public_key:
                 try:
-                    hash_plain = _decrypt_ciphertext(hash_cipher, private_key).strip()
+                    hash_plain = _decrypt_ciphertext(hash_cipher,
+                                                     public_key).strip()
                 except Exception as exc:
                     print(exc)
             if hash_plain:
                 hash_check = hash_plain.lower() == computed_hash
 
-        if private_key and isinstance(payload_cipher, str):
+        if public_key and isinstance(payload_cipher, str):
             try:
-                payload_plain = _decrypt_ciphertext(payload_cipher, private_key)
+                payload_plain = _decrypt_ciphertext(payload_cipher, public_key)
             except Exception as exc:
                 print(exc)
 
