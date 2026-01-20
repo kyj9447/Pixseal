@@ -8,7 +8,13 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from .imageSigner import BinaryProvider, addHiddenBit, _build_payload_json
+from .imageSigner import (
+    BinaryProvider,
+    addHiddenBit,
+    _build_payload_json,
+    make_channel_key,
+    _choose_channel,
+)
 
 # profiler check
 try:
@@ -80,7 +86,7 @@ def binaryToString(binaryCode):
 
 
 @profile
-def readHiddenBit(imageInput: ImageInput):
+def readHiddenBit(imageInput: ImageInput, channel_key: bytes | None = None):
     img = imageInput if isinstance(imageInput, SimpleImage) else SimpleImage.open(imageInput)
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
@@ -88,34 +94,41 @@ def readHiddenBit(imageInput: ImageInput):
     bits = []
     append_bit = bits.append
 
-    for idx in range(total):
+    if channel_key is None:
+        for idx in range(total):
 
-        # Progress Check
-        # print("readHiddenBit Current : ", idx, "/", total)
+            # Progress Check
+            # print("readHiddenBit Current : ", idx, "/", total)
 
-        base = idx * 3
-        r = pixels[base]
-        g = pixels[base + 1]
-        b = pixels[base + 2]
+            base = idx * 3
+            r = pixels[base]
+            g = pixels[base + 1]
+            b = pixels[base + 2]
 
-        diffR = r - 127
-        if diffR < 0:
-            diffR = -diffR
-        diffG = g - 127
-        if diffG < 0:
-            diffG = -diffG
-        diffB = b - 127
-        if diffB < 0:
-            diffB = -diffB
+            diffR = r - 127
+            if diffR < 0:
+                diffR = -diffR
+            diffG = g - 127
+            if diffG < 0:
+                diffG = -diffG
+            diffB = b - 127
+            if diffB < 0:
+                diffB = -diffB
 
-        maxDiff = diffR
-        if diffG > maxDiff:
-            maxDiff = diffG
-        if diffB > maxDiff:
-            maxDiff = diffB
+            maxDiff = diffR
+            if diffG > maxDiff:
+                maxDiff = diffG
+            if diffB > maxDiff:
+                maxDiff = diffB
 
-        bit = "1" if maxDiff % 2 == 0 else "0"
-        append_bit(bit)
+            bit = "1" if maxDiff % 2 == 0 else "0"
+            append_bit(bit)
+    else:
+        for idx in range(total):
+            base = idx * 3
+            channel = _choose_channel(idx, channel_key)
+            bit = pixels[base + channel] & 1
+            append_bit("1" if bit else "0")
 
     return "".join(bits)
 
@@ -243,7 +256,8 @@ def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
     imageHashVerifyResult = False
     imageHashCompareCheckResult = False
 
-    resultBinary = readHiddenBit(imageInput)
+    channel_key = make_channel_key(publicKey)
+    resultBinary = readHiddenBit(imageInput, channel_key=channel_key)
     resultString = binaryToString(resultBinary)
 
     deduplicated, most_common = deduplicate(resultString.split("\n"))
@@ -298,7 +312,11 @@ def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
         endString="\n" + end_sig,
     )
 
-    placeholder_image = addHiddenBit(imageInput, hiddenBinary)
+    placeholder_image = addHiddenBit(
+        imageInput,
+        hiddenBinary,
+        channel_key=channel_key,
+    )
     computed_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
     imageHashCompareCheckResult = image_hash == computed_hash
 

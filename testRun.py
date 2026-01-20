@@ -100,7 +100,7 @@ def line_profile_demo():
             "Line profiling is only available when running via `kernprof -l testRun.py`."
         )
         print(
-            "Please rerun this script with kernprof and select option 6 again."
+            "Please rerun this script with kernprof and select option 5 again."
         )
         return
 
@@ -125,9 +125,40 @@ def line_profile_demo():
     print("\n[Profiler] Line Profile Result")
     profiler.print_stats()
 
+
+def multi_pass_test(passes: int = 3):
+    if passes <= 0:
+        print("[MultiPass] passes must be >= 1.")
+        return
+
+    print(f"\n[MultiPass] passes={passes}")
+    image_input = INPUT_IMAGE
+    all_ok = True
+
+    for idx in range(1, passes + 1):
+        signed_image = signImage(image_input, DEFAULT_PAYLOAD, PRIVATE_KEY)
+        result = validateImage(signed_image, PUBLIC_KEY)
+        hash_ok = bool(result.get("imageHashCompareCheck", {}).get("result"))
+        verdict_ok = bool(result.get("verdict"))
+        pass_ok = hash_ok and verdict_ok
+        all_ok = all_ok and pass_ok
+        print(f"[MultiPass] pass {idx}: hash_ok={hash_ok}, verdict={verdict_ok}")
+        image_input = signed_image
+
+    print(f"[MultiPass] overall={all_ok}")
+
+
 def main():
     choice = input(
-        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: Memory API Test / 5: Line Profiler >> "
+"""
+1: Sign Image
+2: Validate Image
+3: Auto Benchmark
+4: Memory API Test
+5: Line Profiler
+6: Validation Multi Pass Test
+>> 
+"""
     ).strip()
 
     if choice == "1":
@@ -155,6 +186,9 @@ def main():
 
     elif choice == "5":
         line_profile_demo()
+
+    elif choice == "6":
+        multi_pass_test(passes=3)
 
     else:
         print("Invalid selection.")

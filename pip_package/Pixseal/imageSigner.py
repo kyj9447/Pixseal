@@ -1,12 +1,13 @@
 import base64
 import hashlib
+import hmac
 import json
 from pprint import pprint
 from typing import TYPE_CHECKING
 
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 # profiler check
 try:
@@ -83,69 +84,96 @@ class BinaryProvider:
         return bits
 
 
+def make_channel_key(public_key: RSAPublicKey) -> bytes:
+    public_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return hashlib.sha256(public_bytes).digest()
+
+
+def _choose_channel(index: int, channel_key: bytes) -> int:
+    msg = index.to_bytes(8, "little", signed=False)
+    digest = hmac.new(channel_key, msg, hashlib.sha256).digest()
+    return digest[0] % 3
+
+
 @profile
-def addHiddenBit(imageInput: ImageInput, hiddenBinary: BinaryProvider):
+def addHiddenBit(
+    imageInput: ImageInput,
+    hiddenBinary: BinaryProvider,
+    channel_key: bytes | None = None,
+):
     img = SimpleImage.open(imageInput)
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
     total = width * height
     payloadBits = hiddenBinary.buildBitArray(total)
 
-    # Iterate over every pixel and inject one bit
-    for idx in range(total):
-        base = idx * 3
-        # Read the pixel
-        r = pixels[base]
-        g = pixels[base + 1]
-        b = pixels[base + 2]
+    if channel_key is None:
+        # Iterate over every pixel and inject one bit
+        for idx in range(total):
+            base = idx * 3
+            # Read the pixel
+            r = pixels[base]
+            g = pixels[base + 1]
+            b = pixels[base + 2]
 
-        # Calculate the distance from 127
-        diffR = r - 127
-        if diffR < 0:
-            diffR = -diffR
-        diffG = g - 127
-        if diffG < 0:
-            diffG = -diffG
-        diffB = b - 127
-        if diffB < 0:
-            diffB = -diffB
+            # Calculate the distance from 127
+            diffR = r - 127
+            if diffR < 0:
+                diffR = -diffR
+            diffG = g - 127
+            if diffG < 0:
+                diffG = -diffG
+            diffB = b - 127
+            if diffB < 0:
+                diffB = -diffB
 
-        # Pick the component farthest from 127
-        maxDiff = diffR
-        if diffG > maxDiff:
-            maxDiff = diffG
-        if diffB > maxDiff:
-            maxDiff = diffB
+            # Pick the component farthest from 127
+            maxDiff = diffR
+            if diffG > maxDiff:
+                maxDiff = diffG
+            if diffB > maxDiff:
+                maxDiff = diffB
 
-        # Actual value of that channel
-        if maxDiff == diffR:
-            targetColorValue = r
-        elif maxDiff == diffG:
-            targetColorValue = g
-        else:
-            targetColorValue = b
+            # Actual value of that channel
+            if maxDiff == diffR:
+                targetColorValue = r
+            elif maxDiff == diffG:
+                targetColorValue = g
+            else:
+                targetColorValue = b
 
-        # Channels >=127 are decremented, <127 incremented
-        addDirection = 1 if targetColorValue < 127 else -1
+            # Channels >=127 are decremented, <127 incremented
+            addDirection = 1 if targetColorValue < 127 else -1
 
-        # Pull next bit from provider
-        bit = payloadBits[idx]
+            # Pull next bit from provider
+            bit = payloadBits[idx]
 
-        # Force the selected channel parity to match the bit
-        if maxDiff == diffR:
-            if r % 2 != bit:
-                r += addDirection
-        if maxDiff == diffG:
-            if g % 2 != bit:
-                g += addDirection
-        if maxDiff == diffB:
-            if b % 2 != bit:
-                b += addDirection
+            # Force the selected channel parity to match the bit
+            if maxDiff == diffR:
+                if r % 2 != bit:
+                    r += addDirection
+            if maxDiff == diffG:
+                if g % 2 != bit:
+                    g += addDirection
+            if maxDiff == diffB:
+                if b % 2 != bit:
+                    b += addDirection
 
-        # Write the updated pixel
-        pixels[base] = r
-        pixels[base + 1] = g
-        pixels[base + 2] = b
+            # Write the updated pixel
+            pixels[base] = r
+            pixels[base + 1] = g
+            pixels[base + 2] = b
+    else:
+        # Keyed channel selection with explicit LSB overwrite.
+        for idx in range(total):
+            base = idx * 3
+            bit = payloadBits[idx] & 1
+            channel = _choose_channel(idx, channel_key)
+            offset = base + channel
+            pixels[offset] = (pixels[offset] & 0xFE) | bit
 
     # Return the modified image
     return img
@@ -242,14 +270,15 @@ def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
         image_hash_placeholder,
         image_hash_sig_placeholder,  # Placeholder for image hash signature
     )
-    print("payload #1")
-    pprint(payload_with_placeholder)
+    # print("payload #1")
+    # pprint(payload_with_placeholder)
 
     # Sign the start/end markers
     start_marker_sig = stringSigner("START-VALIDATION", private_key)
     end_marker_sig = stringSigner("END-VALIDATION", private_key)
     start_string = start_marker_sig + "\n"
     end_string = "\n" + end_marker_sig
+    channel_key = make_channel_key(private_key.public_key())
 
     # 1st injection: payload with placeholder
     placeholder_binary = BinaryProvider(
@@ -257,7 +286,11 @@ def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
         startString=start_string,
         endString=end_string,
     )
-    image_with_placeholder = addHiddenBit(imageInput, placeholder_binary)
+    image_with_placeholder = addHiddenBit(
+        imageInput,
+        placeholder_binary,
+        channel_key=channel_key,
+    )
 
     # Calculate the image hash and sign it
     image_hash = hashlib.sha256(image_with_placeholder._pixels).hexdigest()
@@ -288,8 +321,8 @@ def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
         image_hash,
         image_hash_sig,
     )
-    print("payload #2")
-    pprint(payload_final)
+    # print("payload #2")
+    # pprint(payload_final)
 
     hiddenBinary = BinaryProvider(
         payload=payload_final + "\n",
@@ -298,6 +331,10 @@ def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
     )
 
     # Final injection: final payload
-    signedImage = addHiddenBit(imageInput, hiddenBinary)
+    signedImage = addHiddenBit(
+        imageInput,
+        hiddenBinary,
+        channel_key=channel_key,
+    )
 
     return signedImage
