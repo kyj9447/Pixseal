@@ -3,19 +3,17 @@ from pprint import pprint
 import os
 import time
 import builtins
+from typing import cast
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from cryptography.hazmat.primitives import serialization
 
 from Pixseal import SimpleImage
 
 
 def _choose_backend():
-    choice = (
-        input(
-            "Select SimpleImage backend "
-            "(Enter=cython / 1=cython / 2=python fallback): "
-        )
-        .strip()
-        .lower()
-    )
+    choice = (input(
+        "Select SimpleImage backend "
+        "(Enter=cython / 1=cython / 2=python fallback): ").strip().lower())
     backend = "python" if choice in {"2", "python"} else "cython"
     os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
     print(f"[Init] SimpleImage backend set to: {backend}")
@@ -30,121 +28,80 @@ except ImportError:  # pragma: no cover
 
 from pip_package.Pixseal import signImage, validateImage
 
-PUBLIC_KEY = "assets/RSA/public_key.pem"
-PRIVATE_KEY = "assets/RSA/private_key.pem"
+PRIVATE_KEY_PATH = "assets/RSA/private_key.pem"
+PUBLIC_KEY_PATH = "assets/RSA/public_key.pem"
 DEFAULT_PAYLOAD = "AutoTest123!"
 INPUT_IMAGE = "assets/original.png"
 OUTPUT_IMAGE = "assets/signed_original.png"
 
+# Load privateKey
+private_key_path = Path(PRIVATE_KEY_PATH)
+if not private_key_path.is_file():
+    raise FileNotFoundError(f"Private key file not found: {PRIVATE_KEY_PATH}")
+private_pem_data = private_key_path.read_bytes()
+if b"BEGIN PRIVATE KEY" not in private_pem_data:
+    raise ValueError("Provided file does not contain a valid private key")
 
-# Helper to shorten long lists for display
-def shorten(seq, max_items=6):
-    if len(seq) <= max_items:
-        return seq
-    head = seq[:2]
-    tail = seq[-2:]
-    return head + ["..."] + tail
+PRIVATE_KEY: RSAPrivateKey = cast(
+    RSAPrivateKey,
+    serialization.load_pem_private_key(private_pem_data, password=None))
 
+# Load publicKey
+public_key_path = Path(PUBLIC_KEY_PATH)
+if not public_key_path.is_file():
+    raise FileNotFoundError(f"Public key file not found: {PUBLIC_KEY_PATH}")
+public_pem_data = public_key_path.read_bytes()
+if b"BEGIN PUBLIC KEY" not in public_pem_data:
+    raise ValueError("Provided file does not contain a valid public key")
 
-# Helper to truncate long decrypted entries for display
-def truncate_decrypted_entries(result):
-    decrypted = result.get("decrypted", [])
-    if not decrypted:
-        return
-    most_common = result.get("extractedString")
-    if not most_common:
-        return
-    max_len = len(most_common)
-    truncated = []
-    for value in decrypted:
-        if value in ("START-VALIDATION", "END-VALIDATION") or value == most_common:
-            truncated.append(value)
-            continue
-        if len(value) > max_len:
-            truncated.append(value[:max_len] + "...")
-        else:
-            truncated.append(value)
-    result["decrypted"] = shorten(truncated)
+PUBLIC_KEY: RSAPublicKey = cast(
+    RSAPublicKey, serialization.load_pem_public_key(public_pem_data))
 
 
 def sign_demo():
     signed: SimpleImage = signImage(INPUT_IMAGE, DEFAULT_PAYLOAD, PRIVATE_KEY)
     signed.save(str(OUTPUT_IMAGE))
     print(f"[Sign] saved -> {OUTPUT_IMAGE}")
-    if PRIVATE_KEY:
-        print(f"[Sign] signed with private key: {PRIVATE_KEY}")
-    else:
-        print("[Sign] plain-text payload injected")
+    print(f"[Sign] signed with private key: {PRIVATE_KEY_PATH}")
 
 
 def validate_demo():
-
-    result = validateImage(OUTPUT_IMAGE)
-    # truncate_decrypted_entries(result)
-    # report = result["validationReport"]
-    # print("[Validate] verdict:", report["verdict"])
-    # print("[Validate] extracted string:", result.get("extractedString"))
-
-    # print("\nValidation Report\n")
-    # pprint(result)
-
-
-def file_roundtrip_demo():
-    print("\n[PathTest] Signing using file path input...")
-    signed_from_path = signImage(INPUT_IMAGE, DEFAULT_PAYLOAD, str(PUBLIC_KEY))
-    signed_from_path.save(str(OUTPUT_IMAGE))
-    print(f"[PathTest] Saved path-based signed image -> {OUTPUT_IMAGE}")
-
-    print("[PathTest] Validating using file path input...")
-    path_result = validateImage(str(OUTPUT_IMAGE))
-    truncate_decrypted_entries(path_result)
-    path_report = path_result["validationReport"]
-    print("[PathTest] verdict:", path_report["verdict"])
-    print("[PathTest] extracted:", path_result.get("extractedString"))
-    pprint(path_result)
+    result = validateImage(OUTPUT_IMAGE, PUBLIC_KEY)
+    print("\nValidation Report\n")
+    pprint(result, sort_dicts=False)
 
 
 def memory_roundtrip_demo():
-    bytes_output = Path(OUTPUT_IMAGE)
-    # ============ Test with File Stream Input ========
     print("\n[Memory] Loading image bytes from disk...")
     image_bytes = Path(INPUT_IMAGE).read_bytes()
+
     print("[Memory] Signing using in-memory bytes...")
-    signed_image = signImage(image_bytes, DEFAULT_PAYLOAD, str(PUBLIC_KEY))
-    signed_image.save(str(bytes_output))
-    print(f"[Memory] Saved signed image -> {bytes_output}")
+    signed_image = signImage(image_bytes, DEFAULT_PAYLOAD, PRIVATE_KEY)
 
     print("[Memory] Validating using in-memory bytes...")
-    signed_bytes = bytes_output.read_bytes()
-    result = validateImage(signed_bytes)
-    truncate_decrypted_entries(result)
-    report = result["validationReport"]
+    result = validateImage(signed_image, PUBLIC_KEY)
 
-    print("[Memory] (bytes) verdict:", report["verdict"])
-    print("[Memory] (bytes) extracted string:", result.get("extractedString"))
-    pprint(result)
+    pprint(result, sort_dicts=False)
 
 
 def line_profile_demo():
     if LineProfiler is None:
-        print(
-            "line_profiler is not installed. "
-            "Please run `pip install line_profiler` and try again."
-        )
+        print("line_profiler is not installed. "
+              "Please run `pip install line_profiler` and try again.")
         return
 
     builtin_profiler = getattr(builtins, "profile", None)
-    is_kernprof = (
-        builtin_profiler is not None
-        and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0]
-        == "line_profiler"
-    )
+    is_kernprof = (builtin_profiler is not None and getattr(
+        builtin_profiler, "__class__", object).__module__.split(".")[0]
+                   == "line_profiler")
 
     if not is_kernprof:
         print(
             "Line profiling is only available when running via `kernprof -l testRun.py`."
         )
-        print("Please rerun this script with kernprof and select option 6 again.")
+        print(
+            "Please rerun this script with kernprof and select option 6 again."
+        )
         return
 
     profiler = LineProfiler()
@@ -154,33 +111,23 @@ def line_profile_demo():
     output = Path(OUTPUT_IMAGE)
     print("\n[Profiler] Using Auto Benchmark inputs.")
     print(
-        f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', public_key={PUBLIC_KEY}, "
-        f"private_key={PRIVATE_KEY}"
-    )
-    signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD, PUBLIC_KEY)
+        f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', public_key={PUBLIC_KEY_PATH}, "
+        f"private_key={PRIVATE_KEY_PATH}")
+    signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD,
+                                              PRIVATE_KEY)
     signed_image.save(str(output))
     print(f"[Profiler] Signed image saved -> {output}")
 
     print("[Profiler] Validating image...")
-    result = profiled_validate(str(output), PRIVATE_KEY)
-    truncate_decrypted_entries(result)
-    pprint(result)
+    result = profiled_validate(str(output), PUBLIC_KEY)
+    pprint(result, sort_dicts=False)
 
     print("\n[Profiler] Line Profile Result")
     profiler.print_stats()
 
-
-# def _prompt_bool(message, default=False):
-#     suffix = " [Y/n]: " if default else " [y/N]: "
-#     choice = input(message + suffix).strip().lower()
-#     if not choice:
-#         return default
-#     return choice in ("y", "yes")
-
-
 def main():
     choice = input(
-        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: File Path Test / 5: Memory API Test / 6: Line Profiler >> "
+        "1: Sign Image / 2: Validate Image / 3: Auto Benchmark / 4: Memory API Test / 5: Line Profiler >> "
     ).strip()
 
     if choice == "1":
@@ -204,12 +151,9 @@ def main():
         print(f"Total time: {check2 - start:.6f} seconds\n")
 
     elif choice == "4":
-        file_roundtrip_demo()
-
-    elif choice == "5":
         memory_roundtrip_demo()
 
-    elif choice == "6":
+    elif choice == "5":
         line_profile_demo()
 
     else:

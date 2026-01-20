@@ -1,11 +1,10 @@
-from pathlib import Path
 import base64
 import hashlib
 import json
 from pprint import pprint
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
@@ -211,7 +210,7 @@ def _build_payload_json(
 
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
-def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
+def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
     """
     Embed a payload into an image using the parity-based steganography scheme.
 
@@ -229,22 +228,8 @@ def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
         FileNotFoundError: If a private key path is provided but the file is missing.
         ValueError: If the file is not a valid PEM private key.
     """
-    if not isinstance(payload, str) or not payload:
+    if not payload:
         raise TypeError("payload must be a non-empty string")
-    if privateKeyPath and not isinstance(privateKeyPath, (str, Path)):
-        raise TypeError("privateKeyPath must be a path string or Path")
-
-    key_path = Path(privateKeyPath)
-    if not key_path.is_file():
-        raise FileNotFoundError(f"Private key file not found: {privateKeyPath}")
-
-    pem_data = key_path.read_bytes()
-    if b"BEGIN PRIVATE KEY" not in pem_data:
-        raise ValueError("Provided file does not contain a valid private key")
-
-    private_key: RSAPrivateKey = cast(
-        RSAPrivateKey, serialization.load_pem_private_key(pem_data, password=None)
-    )
 
     payload_text = payload
     payload_sig = stringSigner(payload_text, private_key)

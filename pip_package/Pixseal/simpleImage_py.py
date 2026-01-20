@@ -575,7 +575,7 @@ def _writeBmp(
 
 
 # 이미지 입력 타입 정의(파일 경로 또는 바이트)
-ImageInput = Union[str, Path, bytes, bytearray]
+ImageInput = Union[str, Path, bytes, bytearray, "SimpleImage"]
 
 
 class SimpleImage:
@@ -656,6 +656,8 @@ class SimpleImage:
     @classmethod
     def open(cls, source: ImageInput) -> "SimpleImage":
         # 파일 경로 또는 바이트 입력 처리
+        if isinstance(source, SimpleImage):
+            return source
         if isinstance(source, (str, Path)):
             with open(source, "rb") as stream:
                 (

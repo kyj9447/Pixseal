@@ -20,7 +20,7 @@ from libc.stdint cimport uint8_t
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 # 이미지 입력 타입 정의
-ImageInput = Union[str, Path, bytes, bytearray]
+ImageInput = Union[str, Path, bytes, bytearray, "SimpleImage"]
 
 
 # PNG 필터의 Paeth 예측값 계산(C 함수)
@@ -680,6 +680,8 @@ cdef class SimpleImage:
     @classmethod
     def open(cls, source: ImageInput) -> "SimpleImage":
         # 파일 경로 또는 바이트 입력 처리
+        if isinstance(source, SimpleImage):
+            return source
         if isinstance(source, (str, Path)):
             with open(source, "rb") as stream:
                 (

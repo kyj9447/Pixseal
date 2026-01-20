@@ -6,7 +6,6 @@ from .imageSigner import (
 )
 from .imageValidator import (
     binaryToString,
-    buildValidationReport,
     deduplicate,
     readHiddenBit,
     validateImage,
@@ -19,7 +18,6 @@ __all__ = [
     "addHiddenBit",
     "signImage",
     "binaryToString",
-    "buildValidationReport",
     "deduplicate",
     "readHiddenBit",
     "validateImage",
