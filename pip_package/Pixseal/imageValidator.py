@@ -87,7 +87,8 @@ def binaryToString(binaryCode):
 
 @profile
 def readHiddenBit(imageInput: ImageInput, channel_key: bytes | None = None):
-    img = imageInput if isinstance(imageInput, SimpleImage) else SimpleImage.open(imageInput)
+    img = imageInput if isinstance(
+        imageInput, SimpleImage) else SimpleImage.open(imageInput)
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
     total = width * height
@@ -248,14 +249,6 @@ def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
         a validation report describing the sentinel checks and verdict.
     """
 
-    lengthCheckResult = False
-    tailCheckResult = False
-    startVerifyResult = False
-    endVerifyResult = False
-    payloadVerifyResult = False
-    imageHashVerifyResult = False
-    imageHashCompareCheckResult = False
-
     channel_key = make_channel_key(publicKey)
     resultBinary = readHiddenBit(imageInput, channel_key=channel_key)
     resultString = binaryToString(resultBinary)
@@ -321,32 +314,42 @@ def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
     imageHashCompareCheckResult = image_hash == computed_hash
 
     verdict = all([
-        lengthCheckResult, tailCheckResult, startVerifyResult, endVerifyResult,
-        payloadVerifyResult, imageHashVerifyResult, imageHashCompareCheckResult
+        lengthCheckResult,
+        tailCheckResult,
+        startVerifyResult,
+        endVerifyResult,
+        payloadVerifyResult,
+        imageHashVerifyResult,
+        imageHashCompareCheckResult,
     ])
 
-    report = {
-        "lengthCheck": {
-            "length": len(deduplicated),
-            "result": lengthCheckResult
-        },
-        "tailCheck": {
-            "full": deduplicated[1][:len(deduplicated[2])+10] + "...",
+    length_report = {
+        "length": len(deduplicated),
+        "result": lengthCheckResult,
+    }
+    if len(deduplicated) == 4:
+        tail_report = {
+            "full": deduplicated[1][:len(deduplicated[2]) + 10] + "...",
             "tail": deduplicated[2],
-            "result": tailCheckResult
-        } if len(deduplicated) == 4 else {
-            "result": "Not Required"
-        },
+            "result": tailCheckResult,
+        }
+    else:
+        tail_report = {"result": "Not Required"}
+    hash_report = {
+        "extrackedHash": image_hash,
+        "computedHash": computed_hash,
+        "result": imageHashCompareCheckResult,
+    }
+
+    report = {
+        "lengthCheck": length_report,
+        "tailCheck": tail_report,
         "startVerify": startVerifyResult,
         "endtVerify": endVerifyResult,
         "payloadVerify": payloadVerifyResult,
         "imageHashVerify": imageHashVerifyResult,
-        "imageHashCompareCheck": {
-            "extrackedHash": image_hash,
-            "computedHash": computed_hash,
-            "result": imageHashCompareCheckResult
-        },
-        "verdict": verdict
+        "imageHashCompareCheck": hash_report,
+        "verdict": verdict,
     }
 
     return report
