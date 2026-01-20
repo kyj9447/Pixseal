@@ -99,8 +99,19 @@ def readHiddenBit(imageInput: ImageInput):
     total = width * height
     bits = []
     append_bit = bits.append
+    is_placeholder_pixel = [False] * total
+
+    byte_bits = []
+    byte_indices = []
+    chars = []
+    placeholder_pattern = 'placeholder":"'
+    in_placeholder = False
 
     for idx in range(total):
+
+        # Progress Check
+        print("readHiddenBit Current : ", idx, "/", total)
+
         base = idx * 3
         r = pixels[base]
         g = pixels[base + 1]
@@ -122,15 +133,112 @@ def readHiddenBit(imageInput: ImageInput):
         if diffB > maxDiff:
             maxDiff = diffB
 
-        append_bit("1" if maxDiff % 2 == 0 else "0")
+        bit = "1" if maxDiff % 2 == 0 else "0"
+        append_bit(bit)
+        byte_bits.append(bit)
+        byte_indices.append(idx)
 
-    return "".join(bits)
+        # parse 8bits to byte
+        if len(byte_bits) == 8:
+            decimal = int("".join(byte_bits), 2)
+            char = chr(decimal)
+            chars.append(char)
+
+            # Mark place holder index
+            if in_placeholder and char != '"':
+                for bit_idx in byte_indices:
+                    is_placeholder_pixel[bit_idx] = True
+
+            # Check placeholder pattern
+            if "".join(chars).endswith(placeholder_pattern):
+                in_placeholder = True
+
+            # Check placeholder ends
+            if in_placeholder and char == '"':
+                in_placeholder = False
+                chars = []
+
+            byte_bits = []
+            byte_indices = []
+
+    # Erase place holder index for end sentinel
+    end_marker_len_bits = len("END-VALIDATION") * 8
+    if end_marker_len_bits > 0:
+        tail_start = max(total - end_marker_len_bits, 0)
+        for idx in range(tail_start, total):
+            is_placeholder_pixel[idx] = False
+
+    return "".join(bits), is_placeholder_pixel
+
+
+def compute_image_hash_with_placeholder_mask(
+    imageInput: ImageInput, placeholder_mask: list[bool]
+) -> str:
+    img = SimpleImage.open(imageInput)
+    width, height = img.size
+    total = width * height
+    if len(placeholder_mask) != total:
+        raise ValueError("Placeholder mask size mismatch")
+
+    pattern_bits = [int(bit) for bit in format(ord("0"), "08b")]
+    placeholder_bit_index = 0
+    pixels = bytearray(img._pixels)
+    for idx in range(total):
+        print("compute_image_hash Current : ", idx, "/", total)
+        if not placeholder_mask[idx]:
+            continue
+        base = idx * 3
+        r = pixels[base]
+        g = pixels[base + 1]
+        b = pixels[base + 2]
+
+        diffR = r - 127
+        if diffR < 0:
+            diffR = -diffR
+        diffG = g - 127
+        if diffG < 0:
+            diffG = -diffG
+        diffB = b - 127
+        if diffB < 0:
+            diffB = -diffB
+
+        maxDiff = diffR
+        if diffG > maxDiff:
+            maxDiff = diffG
+        if diffB > maxDiff:
+            maxDiff = diffB
+
+        if maxDiff == diffR:
+            targetColorValue = r
+        elif maxDiff == diffG:
+            targetColorValue = g
+        else:
+            targetColorValue = b
+
+        addDirection = 1 if targetColorValue < 127 else -1
+        expected_bit = pattern_bits[placeholder_bit_index % 8]
+        placeholder_bit_index += 1
+        current_bit = 1 if maxDiff % 2 == 0 else 0
+
+        if current_bit != expected_bit:
+            if maxDiff == diffR:
+                r += addDirection
+            if maxDiff == diffG:
+                g += addDirection
+            if maxDiff == diffB:
+                b += addDirection
+
+        pixels[base] = r
+        pixels[base + 1] = g
+        pixels[base + 2] = b
+
+    return hashlib.sha256(pixels).hexdigest()
 
 
 def deduplicate(arr):
     deduplicated = []
     freq = {}
-    most_common = None
+    most_common = ""
     most_count = 0
 
     for i, value in enumerate(arr):
@@ -222,7 +330,15 @@ def validateImage(imageInput: ImageInput):
         Dict with the most common extracted string, decrypted sequence, and
         a validation report describing the sentinel checks and verdict.
     """
-    resultBinary = readHiddenBit(imageInput)
+    resultBinary, placeholderMask = readHiddenBit(imageInput)
+    imageHash = compute_image_hash_with_placeholder_mask(imageInput, placeholderMask)
     resultString = binaryToString(resultBinary)
+    deduplicated, most_common = deduplicate(resultString.split("\n"))
+    resultJSON = json.loads(most_common)
+
+    print("imageHash\n", imageHash)
+    print("resultJSON\n", resultJSON["imageHash"])
+
+    # pprint(resultString)
 
     return {}

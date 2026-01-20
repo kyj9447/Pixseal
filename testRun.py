@@ -80,13 +80,13 @@ def sign_demo():
 def validate_demo():
 
     result = validateImage(OUTPUT_IMAGE)
-    truncate_decrypted_entries(result)
-    report = result["validationReport"]
-    print("[Validate] verdict:", report["verdict"])
-    print("[Validate] extracted string:", result.get("extractedString"))
+    # truncate_decrypted_entries(result)
+    # report = result["validationReport"]
+    # print("[Validate] verdict:", report["verdict"])
+    # print("[Validate] extracted string:", result.get("extractedString"))
 
-    print("\nValidation Report\n")
-    pprint(result)
+    # print("\nValidation Report\n")
+    # pprint(result)
 
 
 def file_roundtrip_demo():
