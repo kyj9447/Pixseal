@@ -2,6 +2,7 @@ from pathlib import Path
 import base64
 import hashlib
 import json
+from pprint import pprint
 from typing import TYPE_CHECKING, cast
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -167,12 +168,11 @@ def stringSigner(plaintext: str, private_key: RSAPrivateKey) -> str:
 # Helper function to calculate signature placeholder
 def make_image_hash_placeholder() -> str:
     """
-    Generate a placeholder string for the SHA256 image hash (base64 length).
+    Generate a placeholder string for the SHA256 image hash (hex length).
     """
-    hash_len = hashlib.sha256().digest_size
-    hash_b64_len = len(base64.b64encode(b"\x00" * hash_len))
-    print("hash_b64_len = ", hash_b64_len)
-    return "0" * hash_b64_len
+    hash_hex_len = len(hashlib.sha256().hexdigest())
+    print("hash_hex_len = ", hash_hex_len)
+    return "0" * hash_hex_len
 
 
 def make_hash_signature_placeholder(private_key) -> str:
@@ -257,6 +257,8 @@ def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
         image_hash_placeholder,
         image_hash_sig_placeholder,  # Placeholder for image hash signature
     )
+    print("payload #1")
+    pprint(payload_with_placeholder)
 
     # Sign the start/end markers
     start_marker_sig = stringSigner("START-VALIDATION", private_key)
@@ -279,7 +281,7 @@ def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
             "Signed hash length mismatch with placeholder"
             + "\nhash len: "
             + str(len(image_hash))
-            + "placeholder len: "
+            + "\nplaceholder len: "
             + str(len(image_hash_placeholder))
         )
 
@@ -290,7 +292,7 @@ def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
             "Signed hash length mismatch with placeholder"
             + "\nhash signiture len: "
             + str(len(image_hash_sig))
-            + "placeholder len: "
+            + "\nplaceholder len: "
             + str(len(image_hash_sig_placeholder))
         )
 
@@ -301,6 +303,9 @@ def signImage(imageInput: ImageInput, payload: str, privateKeyPath: str):
         image_hash,
         image_hash_sig,
     )
+    print("payload #2")
+    pprint(payload_final)
+
     hiddenBinary = BinaryProvider(
         payload=payload_final + "\n",
         startString=start_string,
