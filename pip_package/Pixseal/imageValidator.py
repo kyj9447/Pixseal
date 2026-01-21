@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, LiteralString, Sequence
 import base64
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -258,8 +258,9 @@ def validateImage(imageInput: ImageInput, publicKey: PublicKeyInput):
     channel_key = make_channel_key(publicKey)
     resultBinary = readHiddenBit(imageInput, channel_key=channel_key)
     resultString = binaryToString(resultBinary)
+    splitted = resultString.split("\n")
 
-    deduplicated, most_common = deduplicate(resultString.split("\n"))
+    deduplicated, most_common = deduplicate(splitted)
     if not deduplicated or most_common == "":
         print("deduplicate : \n", deduplicated)
         print("most_common : \n", most_common)

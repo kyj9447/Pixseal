@@ -31,6 +31,7 @@ CERT_PATH = "assets/CA/pixseal-dev-root.crt"
 DEFAULT_PAYLOAD = "AutoTest123!"
 INPUT_IMAGE = "assets/original.png"
 OUTPUT_IMAGE = "assets/signed_original.png"
+CURRUPTED_IMAGE = "assets/currupted_signed_original.png"
 
 PRIVATE_KEY = resolve_private_key(PRIVATE_KEY_PATH)
 PUBLIC_KEY = resolve_public_key(CERT_PATH)
@@ -48,6 +49,10 @@ def validate_demo():
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
 
+def validate_fail_demo():
+    result = validateImage(CURRUPTED_IMAGE, PUBLIC_KEY)
+    print("\nValidation Report\n")
+    pprint(result, sort_dicts=False)
 
 def memory_roundtrip_demo():
     print("\n[Memory] Loading image bytes from disk...")
@@ -131,10 +136,11 @@ def main():
 """
 1: Sign Image
 2: Validate Image
-3: Auto Benchmark
-4: Memory API Test
-5: Line Profiler
-6: Validation Multi Pass Test
+3: Validate Image (Fail Test)
+4: Auto Benchmark
+5: Memory API Test
+6: Line Profiler
+7: Validation Multi Pass Test
 >> 
 """
     ).strip()
@@ -146,6 +152,9 @@ def main():
         validate_demo()
 
     elif choice == "3":
+        validate_fail_demo()
+
+    elif choice == "4":
         print("Payload " + DEFAULT_PAYLOAD + " will be injected\n")
         start = time.time()
 
@@ -159,13 +168,13 @@ def main():
 
         print(f"Total time: {check2 - start:.6f} seconds\n")
 
-    elif choice == "4":
+    elif choice == "5":
         memory_roundtrip_demo()
 
-    elif choice == "5":
+    elif choice == "6":
         line_profile_demo()
 
-    elif choice == "6":
+    elif choice == "7":
         multi_pass_test(passes=3)
 
     else:
