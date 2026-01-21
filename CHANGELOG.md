@@ -62,3 +62,18 @@ All tests were conducted in the following environment:
 ### Changed
 - Added image hashing and verification key injection
 - Updated payload structure to include payload + public key + image hash
+
+## [1.0.0]
+
+### Changed
+- Switched from direct RSA public/private key usage to CA-backed certificates for verification input.
+- Channel selection is now based on a public-key-derived hash instead of image pixel values to strengthen integrity guarantees.
+  This incurs significant performance overhead. The legacy pixel-based path remains fast but cannot guarantee that
+  the signing-time hash placeholder equals the validation-time hash placeholder.
+
+### Performance
+- New baseline: Signing time **13.035883s** / Validating time **12.009071s**.
+
+### Upcoming
+- Channel selection algorithm improvements (including a legacy-safe integrity path or alternative algorithm).
+- Cython module introduction for the heaviest hotspots.
