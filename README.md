@@ -133,49 +133,75 @@ If a certificate is provided, Pixseal extracts the embedded RSA public key and
 verifies the signatures. Certificate chain validation is the responsibility of
 the calling application.
 
+## Payload structure
+
+Pixseal embeds a compact JSON payload with the signed data and image hash:
+
+```json
+{
+  "payload": "AutoTest123!",
+  "payloadSig": "BASE64_SIGNATURE",
+  "imageHash": "SHA256_HEX",
+  "imageHashSig": "BASE64_SIGNATURE"
+}
+```
+
+- `payload`: user-provided text
+- `payloadSig`: RSA signature of `payload` (Base64)
+- `imageHash`: SHA256 hex digest of the signed image buffer
+- `imageHashSig`: RSA signature of `imageHash` (Base64)
+
+## Embedded sequence layout
+
+Pixseal writes the following newline-delimited sequence into the image:
+
+```
+<START-VALIDATION signature>
+<payload JSON>
+<payload JSON>
+<payload JSON>
+<payload JSON>
+...(Repeated until it fills the entire image)...
+<payload JSON>   # truncated tail (prefix of payload JSON)
+<END-VALIDATION signature>
+```
+
+During extraction, Pixseal deduplicates the sequence and typically returns four
+lines in order: start signature, full payload JSON, truncated payload prefix,
+and end signature. 
+
+For a valid image, deduplication results in four extracted
+lines. 
+
+```
+<START-VALIDATION signature>
+<payload JSON>
+<payload JSON>   # truncated tail
+<END-VALIDATION signature>
+```
+<sub>※ In rare edge cases, the truncated payload prefix may be absent, in which
+case only three lines are returned.</sub>
+
 ## Validation output
 
-### Success
-
-```
-[SimpleImage] Opened image: <width>x<height>, channels=<n>
-[SimpleImage] Opened image: <width>x<height>, channels=<n>
-
 Validation Report
 
-{'lengthCheck': {'length': <int>, 'result': <bool>},
- 'tailCheck': {'full': '<truncated payload preview>',
-               'tail': '<truncated tail preview>',
-               'result': <bool>},
- 'startVerify': <bool>,
- 'endtVerify': <bool>,
- 'payloadVerify': <bool>,
- 'imageHashVerify': <bool>,
- 'imageHashCompareCheck': {'extrackedHash': '<hex>',
-                           'computedHash': '<hex>',
-                           'result': <bool>},
- 'verdict': <bool>}
-```
-
-### Failure
-
-```
-[SimpleImage] Opened image: <width>x<height>, channels=<n>
-[SimpleImage] Opened image: <width>x<height>, channels=<n>
-
-Validation Report
-
-{'lengthCheck': {'length': <int>, 'result': <bool>},
- 'tailCheck': {'result': 'Not Required'},
- 'startVerify': <bool>,
- 'endtVerify': <bool>,
- 'payloadVerify': <bool>,
- 'imageHashVerify': <bool>,
- 'imageHashCompareCheck': {'extrackedHash': '<hex>',
-                           'computedHash': '<hex>',
-                           'result': <bool>},
- 'verdict': <bool>}
-```
+- `lengthCheck`
+  - `length` : Length of deduplication result array.
+  - `result` : True for 3 or 4.
+- `tailCheck`
+  - `full` : Full payload intact. (output truncated)
+  - `tail` : Truncated payload intact. (output truncated)
+  - `result` : True when the full and truncated payload portions match.
+- `startVerify` : Verification result of the first SIG against "START-VALIDATION"
+- `endtVerify` : Verification result of the last SIG against "END-VALIDATION"
+- `payloadVerify` : Verification result of the "payload" against "payloadSig"
+- `imageHashVerify` : Verification result of the "imageHash" against "imageHashSig"
+- `imageHashCompareCheck`
+  - `extractedHash` : Value of "imageHash" from extracted payload
+  - `computedHash` : Image hash computed directly from the image
+  - `result` : True when extractedHash and computedHash are identical
+- `verdict` : True when all validation checks pass.
 
 ## CLI demo script
 
@@ -193,23 +219,6 @@ Option **5** requires the optional dependency `line_profiler` and must be run vi
 `line_profiler` installed the script will continue to work, but the profiling
 option will display an informative message instead of running.
 
-## Key and certificate management
-
-Generate a root + intermediate + final certificate chain for development:
-
-```bash
-./gen-ca-chain.sh
-```
-
-This generates the following artifacts under `assets/CA`:
-- `pixseal-dev-root.crt` / `.key` (root CA)
-- `pixseal-dev-intermediate.crt` / `.key` (intermediate CA)
-- `pixseal-dev-final.crt` / `.key` (leaf signer)
-
-Use the **leaf private key** to sign and the matching **leaf certificate** (or
-public key) to validate. If your application needs OS-level trust-chain checks,
-perform that separately in the calling application.
-
 ## API reference
 
 | Function | Description |
@@ -226,9 +235,6 @@ perform that separately in the calling application.
 Validation output (success):
 
 ```
-[SimpleImage] Opened image: 2000x1500, channels=4
-[SimpleImage] Opened image: 2000x1500, channels=4
-
 Validation Report
 
 {'lengthCheck': {'length': 4, 'result': True},
@@ -239,7 +245,7 @@ Validation Report
  'endtVerify': True,
  'payloadVerify': True,
  'imageHashVerify': True,
- 'imageHashCompareCheck': {'extrackedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
+ 'imageHashCompareCheck': {'extractedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
                            'computedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
                            'result': True},
  'verdict': True}
@@ -252,9 +258,6 @@ Validation Report
 Validation output (failure):
 
 ```
-[SimpleImage] Opened image: 2000x1500, channels=4
-[SimpleImage] Opened image: 2000x1500, channels=4
-
 Validation Report
 
 {'lengthCheck': {'length': 31, 'result': False},
@@ -263,7 +266,7 @@ Validation Report
  'endtVerify': True,
  'payloadVerify': True,
  'imageHashVerify': True,
- 'imageHashCompareCheck': {'extrackedHash': '68d500c751dfa298d55dfc1cd2ab5c9f43ec139f02f6a11027211c4d144c2870',
+ 'imageHashCompareCheck': {'extractedHash': '68d500c751dfa298d55dfc1cd2ab5c9f43ec139f02f6a11027211c4d144c2870',
                            'computedHash': '43fd2108f5aa16045f4b64d70a0ce05991043cba6878f66d82abd3e7edb9d51e',
                            'result': False},
  'verdict': False}

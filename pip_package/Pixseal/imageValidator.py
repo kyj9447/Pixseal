@@ -365,7 +365,7 @@ def validateImage(imageInput: ImageInput, publicKey: PublicKeyInput):
     else:
         tail_report = {"result": "Not Required"}
     hash_report = {
-        "extrackedHash": image_hash,
+        "extractedHash": image_hash,
         "computedHash": computed_hash,
         "result": imageHashCompareCheckResult,
     }
