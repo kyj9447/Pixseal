@@ -38,11 +38,11 @@ def _load_public_key_bytes(
 
 
 def _public_key_from_cert(cert: x509.Certificate) -> RSAPublicKey:
-    cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("ascii").strip()
-    print(f"[Cert] Loaded certificate:\n{cert_pem}")
     public_key = cert.public_key()
     if not isinstance(public_key, RSAPublicKey):
         raise TypeError("Certificate does not contain an RSA public key")
+    
+    print(f"[Cert] Certificate loaded")
     return public_key
 
 
