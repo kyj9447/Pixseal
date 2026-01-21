@@ -12,4 +12,4 @@ testRun.py.lprof
 publish.sh
 testroom/
 token-test.txt
-assets/CA/
+gen-ca-chain.sh

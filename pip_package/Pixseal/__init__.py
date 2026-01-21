@@ -10,6 +10,12 @@ from .imageValidator import (
     readHiddenBit,
     validateImage,
 )
+from .keyInput import (
+    PublicKeyInput,
+    PrivateKeyInput,
+    resolve_public_key,
+    resolve_private_key,
+)
 
 __all__ = [
     "SimpleImage",
@@ -21,4 +27,8 @@ __all__ = [
     "deduplicate",
     "readHiddenBit",
     "validateImage",
+    "PublicKeyInput",
+    "resolve_public_key",
+    "PrivateKeyInput",
+    "resolve_private_key",
 ]

@@ -3,11 +3,9 @@ from pprint import pprint
 import os
 import time
 import builtins
-from typing import cast
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
-from cryptography.hazmat.primitives import serialization
-
 from Pixseal import SimpleImage
+
+from pip_package.Pixseal.keyInput import resolve_private_key, resolve_public_key
 
 
 def _choose_backend():
@@ -28,34 +26,14 @@ except ImportError:  # pragma: no cover
 
 from pip_package.Pixseal import signImage, validateImage
 
-PRIVATE_KEY_PATH = "assets/RSA/private_key.pem"
-PUBLIC_KEY_PATH = "assets/RSA/public_key.pem"
+PRIVATE_KEY_PATH = "assets/CA/pixseal-dev-root.key"
+CERT_PATH = "assets/CA/pixseal-dev-root.crt"
 DEFAULT_PAYLOAD = "AutoTest123!"
 INPUT_IMAGE = "assets/original.png"
 OUTPUT_IMAGE = "assets/signed_original.png"
 
-# Load privateKey
-private_key_path = Path(PRIVATE_KEY_PATH)
-if not private_key_path.is_file():
-    raise FileNotFoundError(f"Private key file not found: {PRIVATE_KEY_PATH}")
-private_pem_data = private_key_path.read_bytes()
-if b"BEGIN PRIVATE KEY" not in private_pem_data:
-    raise ValueError("Provided file does not contain a valid private key")
-
-PRIVATE_KEY: RSAPrivateKey = cast(
-    RSAPrivateKey,
-    serialization.load_pem_private_key(private_pem_data, password=None))
-
-# Load publicKey
-public_key_path = Path(PUBLIC_KEY_PATH)
-if not public_key_path.is_file():
-    raise FileNotFoundError(f"Public key file not found: {PUBLIC_KEY_PATH}")
-public_pem_data = public_key_path.read_bytes()
-if b"BEGIN PUBLIC KEY" not in public_pem_data:
-    raise ValueError("Provided file does not contain a valid public key")
-
-PUBLIC_KEY: RSAPublicKey = cast(
-    RSAPublicKey, serialization.load_pem_public_key(public_pem_data))
+PRIVATE_KEY = resolve_private_key(PRIVATE_KEY_PATH)
+PUBLIC_KEY = resolve_public_key(CERT_PATH)
 
 
 def sign_demo():
@@ -111,7 +89,7 @@ def line_profile_demo():
     output = Path(OUTPUT_IMAGE)
     print("\n[Profiler] Using Auto Benchmark inputs.")
     print(
-        f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', public_key={PUBLIC_KEY_PATH}, "
+        f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', cert={CERT_PATH}, "
         f"private_key={PRIVATE_KEY_PATH}")
     signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD,
                                               PRIVATE_KEY)
@@ -168,7 +146,7 @@ def main():
         validate_demo()
 
     elif choice == "3":
-        print("Encrypted " + DEFAULT_PAYLOAD + " will be injected\n")
+        print("Payload " + DEFAULT_PAYLOAD + " will be injected\n")
         start = time.time()
 
         sign_demo()

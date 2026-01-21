@@ -15,6 +15,7 @@ from .imageSigner import (
     make_channel_key,
     _choose_channel,
 )
+from .keyInput import PublicKeyInput, resolve_public_key
 
 # profiler check
 try:
@@ -46,6 +47,11 @@ IMAGE_HASH_SIG_FIELD: str = "imageHashSig"
 # Sentinel
 START_SENTINEL: str = "START-VALIDATION"
 END_SENTINEL: str = "END-VALIDATION"
+
+# Report print option
+TAIL_HEAD_LEN = 20
+TAIL_SUFFIX_LEN = 10
+FULL_TAIL_EXTRA_LEN = 20
 
 
 def _is_json_like(value: str) -> bool:
@@ -235,20 +241,20 @@ def verifySigniture(original: str, sig: str, publicKey: RSAPublicKey) -> bool:
 
 
 # main
-def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
+def validateImage(imageInput: ImageInput, publicKey: PublicKeyInput):
     """
     Extract the embedded payload from an image and optionally decrypt it.
 
     Args:
         imageInput: File path, bytes, or file-like object accepted by SimpleImage.
-        privKeyPath: Optional path to a PEM-encoded RSA public key used to
-            decrypt the extracted ciphertext.
+        publicKey: RSA public key or certificate (object, bytes, or path).
 
     Returns:
         Dict with the most common extracted string, decrypted sequence, and
         a validation report describing the sentinel checks and verdict.
     """
 
+    publicKey = resolve_public_key(publicKey)
     channel_key = make_channel_key(publicKey)
     resultBinary = readHiddenBit(imageInput, channel_key=channel_key)
     resultString = binaryToString(resultBinary)
@@ -327,10 +333,32 @@ def validateImage(imageInput: ImageInput, publicKey: RSAPublicKey):
         "length": len(deduplicated),
         "result": lengthCheckResult,
     }
+    
     if len(deduplicated) == 4:
+        full_value = deduplicated[1]
+        tail_value = deduplicated[2]
+        tail_min_len = TAIL_HEAD_LEN + TAIL_SUFFIX_LEN + 3
+        if len(tail_value) > tail_min_len:
+            tail_display = (tail_value[:TAIL_HEAD_LEN] + "..."
+                            + tail_value[-TAIL_SUFFIX_LEN:])
+        else:
+            tail_display = tail_value
+        if len(full_value) > tail_min_len:
+            start = len(tail_value) - TAIL_SUFFIX_LEN
+            if start < 0:
+                start = 0
+            end = len(tail_value) + FULL_TAIL_EXTRA_LEN
+            if end > len(full_value):
+                end = len(full_value)
+            snippet = full_value[start:end]
+            if end < len(full_value):
+                snippet = snippet + "..."
+            full_display = full_value[:TAIL_HEAD_LEN] + "..." + snippet
+        else:
+            full_display = full_value
         tail_report = {
-            "full": deduplicated[1][:len(deduplicated[2]) + 10] + "...",
-            "tail": deduplicated[2],
+            "full": full_display,
+            "tail": tail_display,
             "result": tailCheckResult,
         }
     else:

@@ -9,6 +9,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
+from .keyInput import PrivateKeyInput, resolve_private_key
+
 # profiler check
 try:
     from line_profiler import profile
@@ -92,6 +94,7 @@ def make_channel_key(public_key: RSAPublicKey) -> bytes:
     return hashlib.sha256(public_bytes).digest()
 
 
+@profile
 def _choose_channel(index: int, channel_key: bytes) -> int:
     msg = index.to_bytes(8, "little", signed=False)
     digest = hmac.new(channel_key, msg, hashlib.sha256).digest()
@@ -238,14 +241,14 @@ def _build_payload_json(
 
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
-def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
+def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput):
     """
     Embed a payload into an image using the parity-based steganography scheme.
 
     Args:
         imageInput: File path, bytes, or file-like object accepted by SimpleImage.
         payload: Text payload that should be signed (and optionally embedded).
-        privateKeyPath: Optional path to a PEM-encoded RSA private key used to
+        private_key: RSA private key or PEM/DER-encoded key bytes/path used to
             sign the payload hash, image hash, and sentinel markers.
         includePlaintext: When True, embed the payload text alongside signatures.
 
@@ -259,6 +262,7 @@ def signImage(imageInput: ImageInput, payload: str, private_key: RSAPrivateKey):
     if not payload:
         raise TypeError("payload must be a non-empty string")
 
+    private_key = resolve_private_key(private_key)
     payload_text = payload
     payload_sig = stringSigner(payload_text, private_key)
     image_hash_placeholder = make_image_hash_placeholder()
