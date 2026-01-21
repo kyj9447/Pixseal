@@ -138,43 +138,43 @@ the calling application.
 ### Success
 
 ```
-[SimpleImage] Opened image: 2000x1500, channels=4
-[SimpleImage] Opened image: 2000x1500, channels=4
+[SimpleImage] Opened image: <width>x<height>, channels=<n>
+[SimpleImage] Opened image: <width>x<height>, channels=<n>
 
 Validation Report
 
-{'lengthCheck': {'length': 4, 'result': True},
- 'tailCheck': {'full': '{"payload":"AutoTest...lgu9lUM+s7OHUZywYqYYOYIFVTWCmq...',
-               'tail': '{"payload":"AutoTest...lgu9lUM+s7',
-               'result': True},
- 'startVerify': True,
- 'endtVerify': True,
- 'payloadVerify': True,
- 'imageHashVerify': True,
- 'imageHashCompareCheck': {'extrackedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
-                           'computedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
-                           'result': True},
- 'verdict': True}
+{'lengthCheck': {'length': <int>, 'result': <bool>},
+ 'tailCheck': {'full': '<truncated payload preview>',
+               'tail': '<truncated tail preview>',
+               'result': <bool>},
+ 'startVerify': <bool>,
+ 'endtVerify': <bool>,
+ 'payloadVerify': <bool>,
+ 'imageHashVerify': <bool>,
+ 'imageHashCompareCheck': {'extrackedHash': '<hex>',
+                           'computedHash': '<hex>',
+                           'result': <bool>},
+ 'verdict': <bool>}
 ```
 
 ### Failure
 
 ```
-[SimpleImage] Opened image: 2000x1500, channels=4
-[SimpleImage] Opened image: 2000x1500, channels=4
+[SimpleImage] Opened image: <width>x<height>, channels=<n>
+[SimpleImage] Opened image: <width>x<height>, channels=<n>
 
 Validation Report
 
-{'lengthCheck': {'length': 31, 'result': False},
+{'lengthCheck': {'length': <int>, 'result': <bool>},
  'tailCheck': {'result': 'Not Required'},
- 'startVerify': True,
- 'endtVerify': True,
- 'payloadVerify': True,
- 'imageHashVerify': True,
- 'imageHashCompareCheck': {'extrackedHash': '68d500c751dfa298d55dfc1cd2ab5c9f43ec139f02f6a11027211c4d144c2870',
-                           'computedHash': '43fd2108f5aa16045f4b64d70a0ce05991043cba6878f66d82abd3e7edb9d51e',
-                           'result': False},
- 'verdict': False}
+ 'startVerify': <bool>,
+ 'endtVerify': <bool>,
+ 'payloadVerify': <bool>,
+ 'imageHashVerify': <bool>,
+ 'imageHashCompareCheck': {'extrackedHash': '<hex>',
+                           'computedHash': '<hex>',
+                           'result': <bool>},
+ 'verdict': <bool>}
 ```
 
 ## CLI demo script
@@ -223,9 +223,51 @@ perform that separately in the calling application.
 | --- | --- |
 | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/original.png" width="400px"/> | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/signed_original.png" width="400px"/> |
 
+Validation output (success):
+
+```
+[SimpleImage] Opened image: 2000x1500, channels=4
+[SimpleImage] Opened image: 2000x1500, channels=4
+
+Validation Report
+
+{'lengthCheck': {'length': 4, 'result': True},
+ 'tailCheck': {'full': '{"payload":"AutoTest...lgu9lUM+s7OHUZywYqYYOYIFVTWCmq...',
+               'tail': '{"payload":"AutoTest...lgu9lUM+s7',
+               'result': True},
+ 'startVerify': True,
+ 'endtVerify': True,
+ 'payloadVerify': True,
+ 'imageHashVerify': True,
+ 'imageHashCompareCheck': {'extrackedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
+                           'computedHash': '2129e43456029f39b20bbe96340dce6827c0ad2288107cb92c0b92136fec48d6',
+                           'result': True},
+ 'verdict': True}
+```
+
 | Corrupted after signing |
 | --- |
 | <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/currupted_signed_original.png" width="400px"/> |
+
+Validation output (failure):
+
+```
+[SimpleImage] Opened image: 2000x1500, channels=4
+[SimpleImage] Opened image: 2000x1500, channels=4
+
+Validation Report
+
+{'lengthCheck': {'length': 31, 'result': False},
+ 'tailCheck': {'result': 'Not Required'},
+ 'startVerify': True,
+ 'endtVerify': True,
+ 'payloadVerify': True,
+ 'imageHashVerify': True,
+ 'imageHashCompareCheck': {'extrackedHash': '68d500c751dfa298d55dfc1cd2ab5c9f43ec139f02f6a11027211c4d144c2870',
+                           'computedHash': '43fd2108f5aa16045f4b64d70a0ce05991043cba6878f66d82abd3e7edb9d51e',
+                           'result': False},
+ 'verdict': False}
+```
 
 ## Related projects
 
