@@ -28,7 +28,7 @@ Pixseal prioritizes tamper sensitivity over robustness against intentional adver
   - Detects single-pixel changes with deterministic verification results
 
 - **Tamper Detection**
-  - Detects all forms of image modification, including:
+  - Detects image modifications such as:
     - editing
     - filters and color adjustments
     - cropping and resizing
@@ -148,7 +148,7 @@ Pixseal embeds a compact JSON payload with the signed data and image hash:
 
 - `payload`: user-provided text
 - `payloadSig`: RSA signature of `payload` (Base64)
-- `imageHash`: SHA256 hex digest of the signed image buffer
+- `imageHash`: SHA256 hex digest computed over the signed image buffer.
 - `imageHashSig`: RSA signature of `imageHash` (Base64)
 
 ## Embedded sequence layout
@@ -188,7 +188,7 @@ Validation Report
 
 - `lengthCheck`
   - `length` : Length of deduplication result array.
-  - `result` : True for 3 or 4.
+  - `result` : True for 4 or 3 (valid deduplication cases).
 - `tailCheck`
   - `full` : Full payload intact. (output truncated)
   - `tail` : Truncated payload intact. (output truncated)
@@ -275,9 +275,3 @@ Validation Report
                            'result': False},
  'verdict': False}
 ```
-
-## Related projects
-
-https://github.com/kyj9447/imageSignerCamera
-- Mobile camera that signs images on capture
-- Server-side validator that verifies payloads
