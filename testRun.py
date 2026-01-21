@@ -6,12 +6,17 @@ import builtins
 from Pixseal import SimpleImage
 
 from pip_package.Pixseal.keyInput import resolve_private_key, resolve_public_key
+from pip_package.Pixseal import signImage, validateImage
 
 
 def _choose_backend():
-    choice = (input(
-        "Select SimpleImage backend "
-        "(Enter=cython / 1=cython / 2=python fallback): ").strip().lower())
+    choice = (
+        input(
+            "Select SimpleImage backend (Enter=cython / 1=cython / 2=python fallback): "
+        )
+        .strip()
+        .lower()
+    )
     backend = "python" if choice in {"2", "python"} else "cython"
     os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
     print(f"[Init] SimpleImage backend set to: {backend}")
@@ -24,7 +29,6 @@ try:
 except ImportError:  # pragma: no cover
     LineProfiler = None
 
-from pip_package.Pixseal import signImage, validateImage
 
 PRIVATE_KEY_PATH = "assets/CA/pixseal-dev-root.key"
 CERT_PATH = "assets/CA/pixseal-dev-root.crt"
@@ -49,10 +53,12 @@ def validate_demo():
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
 
+
 def validate_fail_demo():
     result = validateImage(CURRUPTED_IMAGE, PUBLIC_KEY)
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
+
 
 def memory_roundtrip_demo():
     print("\n[Memory] Loading image bytes from disk...")
@@ -69,22 +75,24 @@ def memory_roundtrip_demo():
 
 def line_profile_demo():
     if LineProfiler is None:
-        print("line_profiler is not installed. "
-              "Please run `pip install line_profiler` and try again.")
+        print(
+            "line_profiler is not installed. "
+            "Please run `pip install line_profiler` and try again."
+        )
         return
 
     builtin_profiler = getattr(builtins, "profile", None)
-    is_kernprof = (builtin_profiler is not None and getattr(
-        builtin_profiler, "__class__", object).__module__.split(".")[0]
-                   == "line_profiler")
+    is_kernprof = (
+        builtin_profiler is not None
+        and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0]
+        == "line_profiler"
+    )
 
     if not is_kernprof:
         print(
             "Line profiling is only available when running via `kernprof -l testRun.py`."
         )
-        print(
-            "Please rerun this script with kernprof and select option 5 again."
-        )
+        print("Please rerun this script with kernprof and select option 5 again.")
         return
 
     profiler = LineProfiler()
@@ -95,9 +103,9 @@ def line_profile_demo():
     print("\n[Profiler] Using Auto Benchmark inputs.")
     print(
         f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', cert={CERT_PATH}, "
-        f"private_key={PRIVATE_KEY_PATH}")
-    signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD,
-                                              PRIVATE_KEY)
+        f"private_key={PRIVATE_KEY_PATH}"
+    )
+    signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD, PRIVATE_KEY)
     signed_image.save(str(output))
     print(f"[Profiler] Signed image saved -> {output}")
 
@@ -133,7 +141,7 @@ def multi_pass_test(passes: int = 3):
 
 def main():
     choice = input(
-"""
+        """
 1: Sign Image
 2: Validate Image
 3: Validate Image (Fail Test)

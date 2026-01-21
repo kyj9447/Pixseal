@@ -6,23 +6,10 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 PublicKeyInput: TypeAlias = (
-    RSAPublicKey
-    | x509.Certificate
-    | bytes
-    | bytearray
-    | memoryview
-    | str
-    | Path
+    RSAPublicKey | x509.Certificate | bytes | bytearray | memoryview | str | Path
 )
 
-PrivateKeyInput: TypeAlias = (
-    RSAPrivateKey
-    | bytes
-    | bytearray
-    | memoryview
-    | str
-    | Path
-)
+PrivateKeyInput: TypeAlias = RSAPrivateKey | bytes | bytearray | memoryview | str | Path
 
 
 def _load_public_key_bytes(
@@ -33,7 +20,8 @@ def _load_public_key_bytes(
     public_key_path = Path(public_key_input)
     if not public_key_path.is_file():
         raise FileNotFoundError(
-            f"Public key/certificate file not found: {public_key_path}")
+            f"Public key/certificate file not found: {public_key_path}"
+        )
     return public_key_path.read_bytes()
 
 
@@ -41,8 +29,8 @@ def _public_key_from_cert(cert: x509.Certificate) -> RSAPublicKey:
     public_key = cert.public_key()
     if not isinstance(public_key, RSAPublicKey):
         raise TypeError("Certificate does not contain an RSA public key")
-    
-    print(f"[Cert] Certificate loaded")
+
+    print("[Cert] Certificate loaded")
     return public_key
 
 
@@ -80,8 +68,7 @@ def _load_private_key_bytes(
         return bytes(private_key_input)
     private_key_path = Path(private_key_input)
     if not private_key_path.is_file():
-        raise FileNotFoundError(
-            f"Private key file not found: {private_key_path}")
+        raise FileNotFoundError(f"Private key file not found: {private_key_path}")
     return private_key_path.read_bytes()
 
 

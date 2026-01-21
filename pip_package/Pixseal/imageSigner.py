@@ -2,7 +2,6 @@ import base64
 import hashlib
 import hmac
 import json
-from pprint import pprint
 from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -34,7 +33,6 @@ else:
 
 
 class BinaryProvider:
-
     # Constructor
     def __init__(
         self,

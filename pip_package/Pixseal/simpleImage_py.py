@@ -1,11 +1,15 @@
 # 바이너리 구조체 패킹/언패킹에 사용
 import struct
+
 # PNG 압축/CRC 계산에 사용
 import zlib
+
 # 바이트 스트림 처리를 위한 클래스
 from io import BytesIO
+
 # 파일 경로 객체 처리
 from pathlib import Path
+
 # 타입 힌트 정의
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
@@ -250,7 +254,16 @@ def _loadPng(
                 alpha[pixel_index] = recon[srcIndex + 3]
         # 다음 줄을 위해 이전 줄 갱신(필터 해제에 필요)
         prevRow = recon
-    return width, height, pixels, bytesPerPixel, alpha, chunk_records, None, filter_types
+    return (
+        width,
+        height,
+        pixels,
+        bytesPerPixel,
+        alpha,
+        chunk_records,
+        None,
+        filter_types,
+    )
 
 
 # PNG 청크를 만들기 위한 바이너리 데이터 생성
@@ -743,7 +756,14 @@ class SimpleImage:
         elif self._bmp_header is not None:
             _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
         else:
-            _writePng(path, self.width, self.height, self._pixels, self._alpha, self._png_filters)
+            _writePng(
+                path,
+                self.width,
+                self.height,
+                self._pixels,
+                self._alpha,
+                self._png_filters,
+            )
 
     def saveBmp(self, path: str) -> None:
         # 강제로 BMP로 저장

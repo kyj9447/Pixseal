@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import TYPE_CHECKING, LiteralString, Sequence
+from typing import TYPE_CHECKING, Sequence
 import base64
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -58,7 +58,9 @@ def _is_json_like(value: str) -> bool:
     return value.lstrip().startswith("{")
 
 
-def _extract_payload_json(deduplicated: list[str], ) -> dict:
+def _extract_payload_json(
+    deduplicated: list[str],
+) -> dict:
     for value in deduplicated:
         if not _is_json_like(value):
             continue
@@ -70,12 +72,15 @@ def _extract_payload_json(deduplicated: list[str], ) -> dict:
             continue
         if not isinstance(payload_obj, dict):
             continue
-        if not all(key in payload_obj for key in (
+        if not all(
+            key in payload_obj
+            for key in (
                 PAYLOAD_FIELD,
                 PAYLOAD_SIG_FIELD,
                 IMAGE_HASH_FIELD,
                 IMAGE_HASH_SIG_FIELD,
-        )):
+            )
+        ):
             continue
         return payload_obj
     return {}
@@ -84,7 +89,7 @@ def _extract_payload_json(deduplicated: list[str], ) -> dict:
 def binaryToString(binaryCode):
     string = []
     for i in range(0, len(binaryCode), 8):
-        byte = binaryCode[i:i + 8]
+        byte = binaryCode[i : i + 8]
         decimal = int(byte, 2)
         character = chr(decimal)
         string.append(character)
@@ -93,8 +98,11 @@ def binaryToString(binaryCode):
 
 @profile
 def readHiddenBit(imageInput: ImageInput, channel_key: bytes | None = None):
-    img = imageInput if isinstance(
-        imageInput, SimpleImage) else SimpleImage.open(imageInput)
+    img = (
+        imageInput
+        if isinstance(imageInput, SimpleImage)
+        else SimpleImage.open(imageInput)
+    )
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
     total = width * height
@@ -103,7 +111,6 @@ def readHiddenBit(imageInput: ImageInput, channel_key: bytes | None = None):
 
     if channel_key is None:
         for idx in range(total):
-
             # Progress Check
             # print("readHiddenBit Current : ", idx, "/", total)
 
@@ -175,13 +182,15 @@ def tailCheck(arr: list[str]):
 
 def verifySigniture(original: str, sig: str, publicKey: RSAPublicKey) -> bool:
     try:
-        publicKey.verify(data=original.encode("utf-8"),
-                         signature=base64.b64decode(sig, validate=True),
-                         padding=padding.PSS(
-                             mgf=padding.MGF1(hashes.SHA256()),
-                             salt_length=padding.PSS.MAX_LENGTH,
-                         ),
-                         algorithm=hashes.SHA256())
+        publicKey.verify(
+            data=original.encode("utf-8"),
+            signature=base64.b64decode(sig, validate=True),
+            padding=padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH,
+            ),
+            algorithm=hashes.SHA256(),
+        )
     except InvalidSignature:
         return False
     return True
@@ -277,24 +286,27 @@ def validateImage(imageInput: ImageInput, publicKey: PublicKeyInput):
     payload_sig = payload_obj[PAYLOAD_SIG_FIELD]
     image_hash = payload_obj[IMAGE_HASH_FIELD]
     image_hash_sig = payload_obj[IMAGE_HASH_SIG_FIELD]
-    if (not isinstance(payload_text, str) or not isinstance(payload_sig, str)
-            or not isinstance(image_hash, str)
-            or not isinstance(image_hash_sig, str)):
+    if (
+        not isinstance(payload_text, str)
+        or not isinstance(payload_sig, str)
+        or not isinstance(image_hash, str)
+        or not isinstance(image_hash_sig, str)
+    ):
         raise TypeError("Essenstial value missing!")
-    imageHashVerifyResult = verifySigniture(original=image_hash,
-                                            sig=image_hash_sig,
-                                            publicKey=publicKey)
-    payloadVerifyResult = verifySigniture(original=payload_text,
-                                          sig=payload_sig,
-                                          publicKey=publicKey)
+    imageHashVerifyResult = verifySigniture(
+        original=image_hash, sig=image_hash_sig, publicKey=publicKey
+    )
+    payloadVerifyResult = verifySigniture(
+        original=payload_text, sig=payload_sig, publicKey=publicKey
+    )
     start_sig = deduplicated[0]
     end_sig = deduplicated[-1]
-    startVerifyResult = verifySigniture(original=START_SENTINEL,
-                                        sig=start_sig,
-                                        publicKey=publicKey)
-    endVerifyResult = verifySigniture(original=END_SENTINEL,
-                                      sig=end_sig,
-                                      publicKey=publicKey)
+    startVerifyResult = verifySigniture(
+        original=START_SENTINEL, sig=start_sig, publicKey=publicKey
+    )
+    endVerifyResult = verifySigniture(
+        original=END_SENTINEL, sig=end_sig, publicKey=publicKey
+    )
 
     image_hash_placeholder = "0" * len(image_hash)
     image_hash_sig_placeholder = "0" * len(image_hash_sig)
@@ -320,28 +332,31 @@ def validateImage(imageInput: ImageInput, publicKey: PublicKeyInput):
     computed_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
     imageHashCompareCheckResult = image_hash == computed_hash
 
-    verdict = all([
-        lengthCheckResult,
-        tailCheckResult,
-        startVerifyResult,
-        endVerifyResult,
-        payloadVerifyResult,
-        imageHashVerifyResult,
-        imageHashCompareCheckResult,
-    ])
+    verdict = all(
+        [
+            lengthCheckResult,
+            tailCheckResult,
+            startVerifyResult,
+            endVerifyResult,
+            payloadVerifyResult,
+            imageHashVerifyResult,
+            imageHashCompareCheckResult,
+        ]
+    )
 
     length_report = {
         "length": len(deduplicated),
         "result": lengthCheckResult,
     }
-    
+
     if len(deduplicated) == 4:
         full_value = deduplicated[1]
         tail_value = deduplicated[2]
         tail_min_len = TAIL_HEAD_LEN + TAIL_SUFFIX_LEN + 3
         if len(tail_value) > tail_min_len:
-            tail_display = (tail_value[:TAIL_HEAD_LEN] + "..."
-                            + tail_value[-TAIL_SUFFIX_LEN:])
+            tail_display = (
+                tail_value[:TAIL_HEAD_LEN] + "..." + tail_value[-TAIL_SUFFIX_LEN:]
+            )
         else:
             tail_display = tail_value
         if len(full_value) > tail_min_len:
