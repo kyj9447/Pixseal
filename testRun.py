@@ -34,8 +34,8 @@ PRIVATE_KEY_PATH = "assets/CA/pixseal-dev-root.key"
 CERT_PATH = "assets/CA/pixseal-dev-root.crt"
 DEFAULT_PAYLOAD = "AutoTest123!"
 INPUT_IMAGE = "assets/original.png"
-OUTPUT_IMAGE = "assets/signed_original.png"
 CURRUPTED_IMAGE = "assets/currupted_signed_original.png"
+OUTPUT_IMAGE = "signed_original.png"
 
 PRIVATE_KEY = resolve_private_key(PRIVATE_KEY_PATH)
 PUBLIC_KEY = resolve_public_key(CERT_PATH)
