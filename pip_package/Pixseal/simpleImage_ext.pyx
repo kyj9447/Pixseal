@@ -1,5 +1,6 @@
 # Cython 컴파일 옵션 설정(파이썬 3 문법, 범위 체크/래핑 비활성화)
 # cython: language_level=3, boundscheck=False, wraparound=False
+from __future__ import annotations
 # 바이너리 구조체 패킹/언패킹에 사용
 import struct
 # PNG 압축/CRC 계산에 사용
@@ -50,13 +51,13 @@ cdef int _paethPredictor(int a, int b, int c) nogil:
 
 # PNG 필터 타입에 따라 한 줄(스캔라인)을 복원한다(C 함수)
 @cython.cfunc
-cdef void _applyPngFilter(
+cdef int _applyPngFilter(
     int filterType,
     uint8_t[:] rowData,
     uint8_t[:] prevRow,
     int bytesPerPixel,
     uint8_t[:] recon,
-) nogil:
+) noexcept nogil:
     # PNG는 각 스캔라인 맨 앞에 "필터 타입 1바이트"가 붙는다.
     # rowData는 "필터 적용된 원본 바이트들", recon은 "필터 해제 후 복원된 바이트들"이다.
     # prevRow는 한 줄 위의 복원된 바이트(없으면 길이 0)다.
@@ -64,6 +65,8 @@ cdef void _applyPngFilter(
     cdef Py_ssize_t length = rowData.shape[0]
     cdef Py_ssize_t i
     cdef int left, up, upLeft
+    if filterType < 0 or filterType > 4:
+        return -1
     for i in range(length):
         # 왼쪽/위/좌상단 값 계산
         left = recon[i - bytesPerPixel] if i >= bytesPerPixel else 0
@@ -87,9 +90,8 @@ cdef void _applyPngFilter(
         elif filterType == 4:
             recon[i] = (rowData[i] + _paethPredictor(left, up, upLeft)) & 0xFF
         else:
-            # Python 예외는 GIL이 필요함
-            with gil:
-                raise ValueError(f"Unsupported PNG filter: {filterType}")
+            return -1
+    return 0
 
 
 # PNG 청크를 읽는다(Python 함수)
@@ -226,7 +228,8 @@ cdef tuple _loadPng(object stream):
         recon = bytearray(rowLength)
         recon_view = recon
         # 필터 해제: 이전 줄(prevRow)과 현재 줄(rowBytes)을 사용해 복원
-        _applyPngFilter(filterType, row_view, prev_view, bytesPerPixel, recon_view)
+        if _applyPngFilter(filterType, row_view, prev_view, bytesPerPixel, recon_view) != 0:
+            raise ValueError(f"Unsupported PNG filter: {filterType}")
         # RGB/알파로 분리 저장(필요 시 alpha 버퍼에 알파값 저장)
         for x in range(width):
             srcIndex = x * bytesPerPixel
@@ -678,7 +681,7 @@ cdef class SimpleImage:
         raise ValueError("Unsupported image format")
 
     @classmethod
-    def open(cls, source: ImageInput) -> "SimpleImage":
+    def open(cls, source: ImageInput) -> SimpleImage:
         # 파일 경로 또는 바이트 입력 처리
         if isinstance(source, SimpleImage):
             return source
@@ -736,7 +739,7 @@ cdef class SimpleImage:
         self._pixels[index + 1] = int(g) & 0xFF
         self._pixels[index + 2] = int(b) & 0xFF
 
-    def copy(self) -> "SimpleImage":
+    def copy(self) -> SimpleImage:
         # 내부 버퍼를 복사해서 새 객체 생성
         cdef object alpha_copy
         cdef object chunk_copy
