@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/Pixseal.png" width="200px"/>
+<img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/logo/Pixseal.png" width="200px"/>
 </p>
 
 # Pixseal
