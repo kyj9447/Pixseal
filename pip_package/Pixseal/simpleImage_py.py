@@ -155,7 +155,8 @@ def _loadPng(
         raise ValueError("Unsupported PNG signature")
 
     # IHDR에서 읽을 값들을 초기화
-    width = height = None
+    width : int = 0
+    height : int = 0
     bitDepth = colorType = None
     compression = filterMethod = interlace = None
     # IDAT 데이터 목록

@@ -8,3 +8,4 @@ token.txt
 val_fail.txt
 val_success.txt
 testRun.py.lprof
+pyrightconfig.json
