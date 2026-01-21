@@ -207,14 +207,18 @@ Validation Report
 
 `python testRun.py` offers an interactive flow:
 
-1. Choose **1** to sign an image. It reads `assets/original.png`, asks for a payload, and writes `assets/signed_original.png`.
-2. Choose **2** to validate. It reads `assets/signed_original.png` and prints the validation report.
-3. Choose **3** to benchmark performance.
-4. Choose **4** to test signing and validation with byte-stream input.
-5. Choose **5** to run the optional line-profiler demo.
-6. Choose **6** to run validation multi-pass tests.
+Before the menu, it prompts for the SimpleImage backend
+(Enter/1=cython, 2=python fallback) and sets `PIXSEAL_SIMPLEIMAGE_BACKEND`.
 
-Option **5** requires the optional dependency `line_profiler` and must be run via
+1. Choose **1** to sign an image. It reads `assets/original.png` and writes `assets/signed_original.png`.
+2. Choose **2** to validate. It reads `assets/signed_original.png` and prints the validation report.
+3. Choose **3** to run the failure test. It reads `assets/currupted_signed_original.png`.
+4. Choose **4** to benchmark performance (sign + validate with timings).
+5. Choose **5** to test signing and validation using in-memory bytes.
+6. Choose **6** to run the optional line-profiler demo.
+7. Choose **7** to run validation multi-pass tests.
+
+Option **6** requires the optional dependency `line_profiler` and must be run via
 `kernprof -l testRun.py` so that `builtins.profile` is provided. Without
 `line_profiler` installed the script will continue to work, but the profiling
 option will display an informative message instead of running.
