@@ -13,3 +13,5 @@ publish.sh
 testroom/
 token-test.txt
 gen-ca-chain.sh
+val_fail.txt
+val_success.txt
