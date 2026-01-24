@@ -77,3 +77,16 @@ All tests were conducted in the following environment:
 ### Upcoming
 - Channel selection algorithm improvements (including a legacy-safe integrity path or alternative algorithm).
 - Cython module introduction for the heaviest hotspots.
+
+
+## [1.1.0]
+
+### Changed
+- Channel selection now uses raw key material rather than a derived hash.
+  - This simplifies the pipeline and reduces cryptographic overhead without weakening randomness.
+- Legacy channel embedding has been changed from ±1 value shifts to direct
+  target-bit replacement (...XXX0 / ...XXX1), guaranteeing repeatable integrity.
+- Introduced a `keyless` flag in signImage() and validateImage() to explicitly
+  choose pixel-based channel selection or key-based selection (default).
+### Performance
+Signing time **2.575809s** / Validating time **1.531062s**.
