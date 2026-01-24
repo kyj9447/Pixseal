@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import hmac
 import json
 from typing import TYPE_CHECKING
 
@@ -89,21 +88,22 @@ def make_channel_key(public_key: RSAPublicKey) -> bytes:
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    return hashlib.sha256(public_bytes).digest()
+    return public_bytes
 
 
 @profile
 def _choose_channel(index: int, channel_key: bytes) -> int:
-    msg = index.to_bytes(8, "little", signed=False)
-    digest = hmac.new(channel_key, msg, hashlib.sha256).digest()
-    return digest[0] % 3
+    if not channel_key:
+        raise ValueError("channel_key must not be empty")
+    return channel_key[index % len(channel_key)] % 3
 
 
 @profile
 def addHiddenBit(
     imageInput: ImageInput,
     hiddenBinary: BinaryProvider,
-    channel_key: bytes | None = None,
+    channel_key: bytes,
+    keyless: bool,
 ):
     img = SimpleImage.open(imageInput)
     width, height = img.size
@@ -111,7 +111,7 @@ def addHiddenBit(
     total = width * height
     payloadBits = hiddenBinary.buildBitArray(total)
 
-    if channel_key is None:
+    if keyless:
         # Iterate over every pixel and inject one bit
         for idx in range(total):
             base = idx * 3
@@ -120,14 +120,17 @@ def addHiddenBit(
             g = pixels[base + 1]
             b = pixels[base + 2]
 
-            # Calculate the distance from 127
-            diffR = r - 127
+            # Calculate the distance from 127 (ignore LSB for stability)
+            r_sel = r & 0xFE
+            g_sel = g & 0xFE
+            b_sel = b & 0xFE
+            diffR = r_sel - 127
             if diffR < 0:
                 diffR = -diffR
-            diffG = g - 127
+            diffG = g_sel - 127
             if diffG < 0:
                 diffG = -diffG
-            diffB = b - 127
+            diffB = b_sel - 127
             if diffB < 0:
                 diffB = -diffB
 
@@ -138,30 +141,16 @@ def addHiddenBit(
             if diffB > maxDiff:
                 maxDiff = diffB
 
-            # Actual value of that channel
-            if maxDiff == diffR:
-                targetColorValue = r
-            elif maxDiff == diffG:
-                targetColorValue = g
-            else:
-                targetColorValue = b
-
-            # Channels >=127 are decremented, <127 incremented
-            addDirection = 1 if targetColorValue < 127 else -1
-
             # Pull next bit from provider
-            bit = payloadBits[idx]
+            bit = payloadBits[idx] & 1
 
-            # Force the selected channel parity to match the bit
+            # Force the selected channel parity to match the bit (LSB overwrite)
             if maxDiff == diffR:
-                if r % 2 != bit:
-                    r += addDirection
+                r = (r & 0xFE) | bit
             if maxDiff == diffG:
-                if g % 2 != bit:
-                    g += addDirection
+                g = (g & 0xFE) | bit
             if maxDiff == diffB:
-                if b % 2 != bit:
-                    b += addDirection
+                b = (b & 0xFE) | bit
 
             # Write the updated pixel
             pixels[base] = r
@@ -203,7 +192,7 @@ def make_image_hash_placeholder() -> str:
     return "0" * hash_hex_len
 
 
-def make_hash_signature_placeholder(private_key) -> str:
+def make_hash_signature_placeholder(private_key: RSAPrivateKey) -> str:
     """
     Generate a placeholder string for the signature of the image hash.
     """
@@ -239,7 +228,12 @@ def _build_payload_json(
 
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
-def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput):
+def signImage(
+    imageInput: ImageInput,
+    payload: str,
+    private_key: PrivateKeyInput,
+    keyless: bool = False,
+):
     """
     Embed a payload into an image using the parity-based steganography scheme.
 
@@ -272,8 +266,6 @@ def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput
         image_hash_placeholder,
         image_hash_sig_placeholder,  # Placeholder for image hash signature
     )
-    # print("payload #1")
-    # pprint(payload_with_placeholder)
 
     # Sign the start/end markers
     start_marker_sig = stringSigner("START-VALIDATION", private_key)
@@ -291,29 +283,26 @@ def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput
     image_with_placeholder = addHiddenBit(
         imageInput,
         placeholder_binary,
-        channel_key=channel_key,
+        channel_key,
+        keyless,
     )
 
     # Calculate the image hash and sign it
     image_hash = hashlib.sha256(image_with_placeholder._pixels).hexdigest()
     if len(image_hash) != len(image_hash_placeholder):
         raise ValueError(
-            "Signed hash length mismatch with placeholder"
-            + "\nhash len: "
-            + str(len(image_hash))
-            + "\nplaceholder len: "
-            + str(len(image_hash_placeholder))
+            "Signed hash length mismatch with placeholder",
+            "\nhash len: " + str(len(image_hash)),
+            "\nplaceholder len: " + str(len(image_hash_placeholder)),
         )
 
     # Sign the calculated hash
     image_hash_sig = stringSigner(image_hash, private_key)
     if len(image_hash_sig) != len(image_hash_sig_placeholder):
         raise ValueError(
-            "Signed hash length mismatch with placeholder"
-            + "\nhash signiture len: "
-            + str(len(image_hash_sig))
-            + "\nplaceholder len: "
-            + str(len(image_hash_sig_placeholder))
+            "Signed hash length mismatch with placeholder",
+            "\nhash signiture len: " + str(len(image_hash_sig)),
+            "\nplaceholder len: " + str(len(image_hash_sig_placeholder)),
         )
 
     # Prepare the final payload with the calculated hash
@@ -323,8 +312,6 @@ def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput
         image_hash,
         image_hash_sig,
     )
-    # print("payload #2")
-    # pprint(payload_final)
 
     hiddenBinary = BinaryProvider(
         payload=payload_final + "\n",
@@ -336,7 +323,8 @@ def signImage(imageInput: ImageInput, payload: str, private_key: PrivateKeyInput
     signedImage = addHiddenBit(
         imageInput,
         hiddenBinary,
-        channel_key=channel_key,
+        channel_key,
+        keyless,
     )
 
     return signedImage

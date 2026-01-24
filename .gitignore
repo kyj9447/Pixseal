@@ -9,3 +9,5 @@ val_fail.txt
 val_success.txt
 testRun.py.lprof
 pyrightconfig.json
+dev/testAlg.py
+dev/algPack.py

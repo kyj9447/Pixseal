@@ -10,13 +10,7 @@ from pip_package.Pixseal import signImage, validateImage
 
 
 def _choose_backend():
-    choice = (
-        input(
-            "Select SimpleImage backend (Enter=cython / 1=cython / 2=python fallback): "
-        )
-        .strip()
-        .lower()
-    )
+    choice = (input("Select SimpleImage backend (Enter=cython / 1=cython / 2=python fallback): ").strip().lower())
     backend = "python" if choice in {"2", "python"} else "cython"
     os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
     print(f"[Init] SimpleImage backend set to: {backend}")
@@ -29,7 +23,6 @@ try:
 except ImportError:  # pragma: no cover
     LineProfiler = None
 
-
 PRIVATE_KEY_PATH = "assets/CA/pixseal-dev-root.key"
 CERT_PATH = "assets/CA/pixseal-dev-root.crt"
 DEFAULT_PAYLOAD = "AutoTest123!"
@@ -41,21 +34,21 @@ PRIVATE_KEY = resolve_private_key(PRIVATE_KEY_PATH)
 PUBLIC_KEY = resolve_public_key(CERT_PATH)
 
 
-def sign_demo():
-    signed: SimpleImage = signImage(INPUT_IMAGE, DEFAULT_PAYLOAD, PRIVATE_KEY)
+def sign_demo(keyless: bool = False):
+    signed: SimpleImage = signImage(INPUT_IMAGE, DEFAULT_PAYLOAD, PRIVATE_KEY, keyless)
     signed.save(str(OUTPUT_IMAGE))
     print(f"[Sign] saved -> {OUTPUT_IMAGE}")
     print(f"[Sign] signed with private key: {PRIVATE_KEY_PATH}")
 
 
-def validate_demo():
-    result = validateImage(OUTPUT_IMAGE, PUBLIC_KEY)
+def validate_demo(keyless: bool = False):
+    result = validateImage(OUTPUT_IMAGE, PUBLIC_KEY, keyless)
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
 
 
-def validate_fail_demo():
-    result = validateImage(CURRUPTED_IMAGE, PUBLIC_KEY)
+def validate_fail_demo(keyless: bool = False):
+    result = validateImage(CURRUPTED_IMAGE, PUBLIC_KEY, keyless)
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
 
@@ -75,24 +68,17 @@ def memory_roundtrip_demo():
 
 def line_profile_demo():
     if LineProfiler is None:
-        print(
-            "line_profiler is not installed. "
-            "Please run `pip install line_profiler` and try again."
-        )
+        print("line_profiler is not installed. "
+              "Please run `pip install line_profiler` and try again.")
         return
 
     builtin_profiler = getattr(builtins, "profile", None)
-    is_kernprof = (
-        builtin_profiler is not None
-        and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0]
-        == "line_profiler"
-    )
+    is_kernprof = (builtin_profiler is not None
+                   and getattr(builtin_profiler, "__class__", object).__module__.split(".")[0] == "line_profiler")
 
     if not is_kernprof:
-        print(
-            "Line profiling is only available when running via `kernprof -l testRun.py`."
-        )
-        print("Please rerun this script with kernprof and select option 5 again.")
+        print("Line profiling is only available when running via `kernprof -l testRun.py`.")
+        print("Please rerun this script with kernprof and select option 7 again.")
         return
 
     profiler = LineProfiler()
@@ -101,10 +87,8 @@ def line_profile_demo():
 
     output = Path(OUTPUT_IMAGE)
     print("\n[Profiler] Using Auto Benchmark inputs.")
-    print(
-        f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', cert={CERT_PATH}, "
-        f"private_key={PRIVATE_KEY_PATH}"
-    )
+    print(f"image={INPUT_IMAGE}, payload='{DEFAULT_PAYLOAD}', cert={CERT_PATH}, "
+          f"private_key={PRIVATE_KEY_PATH}")
     signed_image: SimpleImage = profiled_sign(INPUT_IMAGE, DEFAULT_PAYLOAD, PRIVATE_KEY)
     signed_image.save(str(output))
     print(f"[Profiler] Signed image saved -> {output}")
@@ -140,18 +124,17 @@ def multi_pass_test(passes: int = 3):
 
 
 def main():
-    choice = input(
-        """
+    choice = input("""
 1: Sign Image
 2: Validate Image
 3: Validate Image (Fail Test)
 4: Auto Benchmark
-5: Memory API Test
-6: Line Profiler
-7: Validation Multi Pass Test
+5: Auto Benchmark (Key Less)
+6: Memory API Test
+7: Line Profiler
+8: Validation Multi Pass Test
 >> 
-"""
-    ).strip()
+""").strip()
 
     if choice == "1":
         sign_demo()
@@ -177,12 +160,26 @@ def main():
         print(f"Total time: {check2 - start:.6f} seconds\n")
 
     elif choice == "5":
-        memory_roundtrip_demo()
+        print("Payload " + DEFAULT_PAYLOAD + " will be injected/ without Key based Channel Selector\n")
+        start = time.time()
+
+        sign_demo(True)
+        check1 = time.time()
+        print(f"Signing time: {check1 - start:.6f} seconds\n")
+
+        validate_demo(True)
+        check2 = time.time()
+        print(f"Validating time: {check2 - check1:.6f} seconds\n")
+
+        print(f"Total time: {check2 - start:.6f} seconds\n")
 
     elif choice == "6":
-        line_profile_demo()
+        memory_roundtrip_demo()
 
     elif choice == "7":
+        line_profile_demo()
+
+    elif choice == "8":
         multi_pass_test(passes=3)
 
     else:
