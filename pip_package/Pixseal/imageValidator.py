@@ -281,22 +281,36 @@ def validateImage(
 
     deduplicated, most_common = deduplicate(splitted)
     if not deduplicated or most_common == "":
-        raise ValueError("deduplication failed!")
+        # raise ValueError("Deduplication failed!")
+        return {
+            "status": "Failed",
+            "error": "Deduplication failed",
+            "verdict": False,
+        }
 
     lengthCheckResult = lengthCheck(deduplicated)
     tailCheckResult = tailCheck(deduplicated)
 
     payload_obj = _extract_payload_json(deduplicated)
     if not payload_obj:
-        raise ValueError("json extraction from payload failed!")
-
+        # raise ValueError("json extraction from payload failed!")
+        return {
+            "status": "Failed",
+            "error": "JSON extraction from payload failed!",
+            "verdict": False,
+        }
     payload_text = payload_obj[PAYLOAD_FIELD]
     payload_sig = payload_obj[PAYLOAD_SIG_FIELD]
     image_hash = payload_obj[IMAGE_HASH_FIELD]
     image_hash_sig = payload_obj[IMAGE_HASH_SIG_FIELD]
     if (not isinstance(payload_text, str) or not isinstance(payload_sig, str) or not isinstance(image_hash, str)
             or not isinstance(image_hash_sig, str)):
-        raise TypeError("Essenstial value missing!")
+        # raise TypeError("Essenstial value missing!")
+        return {
+            "status": "Failed",
+            "error": "Essenstial value in JSON missing",
+            "verdict": False,
+        }
     imageHashVerifyResult = verifySigniture(original=image_hash, sig=image_hash_sig, publicKey=publicKey)
     payloadVerifyResult = verifySigniture(original=payload_text, sig=payload_sig, publicKey=publicKey)
     start_sig = deduplicated[0]
