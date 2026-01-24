@@ -95,6 +95,7 @@ signed = signImage(
     imageInput="assets/original.png",
     payload="AutoTest123!",
     private_key="assets/CA/pixseal-dev-final.key",
+    keyless=False,  # default: key-based channel selection
 )
 signed.save("assets/signed_original.png")
 ```
@@ -109,6 +110,7 @@ from Pixseal import validateImage
 report = validateImage(
     imageInput="assets/signed_original.png",
     publicKey="assets/CA/pixseal-dev-final.crt",  # cert or public key
+    keyless=False,  # default: key-based channel selection
 )
 
 print(report["verdict"])
@@ -132,6 +134,19 @@ Pixseal accepts multiple input formats so you can keep the calling code minimal.
 If a certificate is provided, Pixseal extracts the embedded RSA public key and
 verifies the signatures. Certificate chain validation is the responsibility of
 the calling application.
+
+## Channel selection mode
+
+Both `signImage()` and `validateImage()` accept a `keyless` flag.
+
+- `keyless=False` (default): key-based channel selection using raw public-key bytes.
+- `keyless=True`: pixel-based channel selection.
+
+Keyless mode is provided as an option and differs in extractability:
+
+1. Keyless-signed images: payload extraction is possible without a key; but verification fails.
+2. Key-based-signed images: without the key, Pixseal cannot even recognize that
+   it was applied, and extraction is impossible; verification fails too.
 
 ## Payload structure
 
@@ -214,11 +229,12 @@ Before the menu, it prompts for the SimpleImage backend
 2. Choose **2** to validate. It reads `assets/signed_original.png` and prints the validation report.
 3. Choose **3** to run the failure test. It reads `assets/currupted_signed_original.png`.
 4. Choose **4** to benchmark performance (sign + validate with timings).
-5. Choose **5** to test signing and validation using in-memory bytes.
-6. Choose **6** to run the optional line-profiler demo.
-7. Choose **7** to run validation multi-pass tests.
+5. Choose **5** to benchmark performance in keyless mode.
+6. Choose **6** to test signing and validation using in-memory bytes.
+7. Choose **7** to run the optional line-profiler demo.
+8. Choose **8** to run validation multi-pass tests.
 
-Option **6** requires the optional dependency `line_profiler` and must be run via
+Option **7** requires the optional dependency `line_profiler` and must be run via
 `kernprof -l testRun.py` so that `builtins.profile` is provided. Without
 `line_profiler` installed the script will continue to work, but the profiling
 option will display an informative message instead of running.
@@ -227,8 +243,8 @@ option will display an informative message instead of running.
 
 | Function | Description |
 | --- | --- |
-| `signImage(imageInput, payload, private_key)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `payload` plus sentinels, and signs the payload/hash using the RSA private key. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
-| `validateImage(imageInput, publicKey)` | Reads the hidden bit stream from a path or raw bytes, rebuilds the payload JSON, verifies signatures and the computed image hash, and returns a validation report. Accepts RSA public keys or X.509 certificates. |
+| `signImage(imageInput, payload, private_key, keyless=False)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `payload` plus sentinels, and signs the payload/hash using the RSA private key. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
+| `validateImage(imageInput, publicKey, keyless=False)` | Reads the hidden bit stream from a path or raw bytes, rebuilds the payload JSON, verifies signatures and the computed image hash, and returns a validation report. Accepts RSA public keys or X.509 certificates. |
 
 ## Examples
 
