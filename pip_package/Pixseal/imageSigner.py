@@ -83,6 +83,7 @@ class BinaryProvider:
         return bits
 
 
+@profile
 def make_channel_key(public_key: RSAPublicKey) -> bytes:
     public_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
@@ -184,6 +185,7 @@ def addHiddenBit(
 
 
 # Helper function to encrypt a string with RSA private key
+@profile
 def stringSigner(plaintext: str, private_key: RSAPrivateKey) -> str:
     signature = private_key.sign(
         plaintext.encode("utf-8"),
@@ -197,6 +199,7 @@ def stringSigner(plaintext: str, private_key: RSAPrivateKey) -> str:
 
 
 # Helper function to calculate signature placeholder
+@profile
 def make_image_hash_placeholder() -> str:
     """
     Generate a placeholder string for the SHA256 image hash (hex length).
@@ -206,6 +209,7 @@ def make_image_hash_placeholder() -> str:
     return "0" * hash_hex_len
 
 
+@profile
 def make_hash_signature_placeholder(private_key: RSAPrivateKey) -> str:
     """
     Generate a placeholder string for the signature of the image hash.
@@ -224,6 +228,7 @@ IMAGE_HASH_SIG_FIELD = "imageHashSig"
 
 
 # Helper function for building the JSON payload
+@profile
 def _build_payload_json(
     payload: str | None,
     payload_sig: str,
@@ -242,6 +247,7 @@ def _build_payload_json(
 
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
+@profile
 def signImage(
     imageInput: ImageInput,
     payload: str,

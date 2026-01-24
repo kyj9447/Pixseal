@@ -55,10 +55,12 @@ TAIL_SUFFIX_LEN = 10
 FULL_TAIL_EXTRA_LEN = 20
 
 
+@profile
 def _is_json_like(value: str) -> bool:
     return value.lstrip().startswith("{")
 
 
+@profile
 def _extract_payload_json(deduplicated: list[str], ) -> dict:
     for value in deduplicated:
         if not _is_json_like(value):
@@ -153,6 +155,7 @@ def readHiddenBit(
     return "".join(bits)
 
 
+@profile
 def deduplicate(arr: Sequence[str]) -> tuple[list[str], str]:
     deduplicated = []
     freq = {}
@@ -186,6 +189,7 @@ def tailCheck(arr: list[str]):
     return full_cipher.startswith(truncated_cipher)
 
 
+@profile
 def verifySigniture(original: str, sig: str, publicKey: RSAPublicKey) -> bool:
     try:
         publicKey.verify(
@@ -256,6 +260,7 @@ def verifySigniture(original: str, sig: str, publicKey: RSAPublicKey) -> bool:
 
 
 # main
+@profile
 def validateImage(
     imageInput: ImageInput,
     publicKey: PublicKeyInput,
