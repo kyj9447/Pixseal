@@ -84,14 +84,21 @@ def _extract_payload_json(deduplicated: list[str], ) -> dict:
     return {}
 
 
-def binaryToString(binaryCode):
-    string = []
-    for i in range(0, len(binaryCode), 8):
-        byte = binaryCode[i:i + 8]
-        decimal = int(byte, 2)
-        character = chr(decimal)
-        string.append(character)
-    return "".join(string)
+@profile
+def binaryToString(bits: list[int]):
+    ba = bytearray()
+    acc = 0
+    count = 0
+
+    for bit in bits:
+        acc = (acc << 1) | bit
+        count += 1
+        if count == 8:
+            ba.append(acc)
+            acc = 0
+            count = 0
+
+    return ba.decode("utf-8", errors="ignore")
 
 
 @profile
@@ -104,7 +111,7 @@ def readHiddenBit(
     width, height = img.size
     pixels = img._pixels  # direct buffer access for performance
     total = width * height
-    bits = []
+    bits: list[int] = []
     append_bit = bits.append
 
     if keyless:
@@ -141,7 +148,7 @@ def readHiddenBit(
                 bit = g & 1
             else:
                 bit = b & 1
-            append_bit("1" if bit else "0")
+            append_bit(bit)
     else:
         channel_key_arr = _build_channel_key_array(total, channel_key)
 
@@ -150,9 +157,9 @@ def readHiddenBit(
             # channel = _choose_channel(idx, channel_key)
             channel = channel_key_arr[idx]
             bit = pixels[base + channel] & 1
-            append_bit("1" if bit else "0")
+            append_bit(bit)
 
-    return "".join(bits)
+    return bits
 
 
 @profile
