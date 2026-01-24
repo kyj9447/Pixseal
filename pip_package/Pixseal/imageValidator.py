@@ -308,7 +308,7 @@ def validateImage(
         # raise TypeError("Essenstial value missing!")
         return {
             "status": "Failed",
-            "error": "Essenstial value in JSON missing",
+            "error": "Essenstial values in JSON are missing",
             "verdict": False,
         }
     imageHashVerifyResult = verifySigniture(original=image_hash, sig=image_hash_sig, publicKey=publicKey)

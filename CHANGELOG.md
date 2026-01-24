@@ -86,7 +86,8 @@ All tests were conducted in the following environment:
   - This simplifies the pipeline and reduces cryptographic overhead without weakening randomness.
 - Legacy channel embedding has been changed from ±1 value shifts to direct
   target-bit replacement (...XXX0 / ...XXX1), guaranteeing repeatable integrity.
-- Introduced a `keyless` flag in signImage() and validateImage() to explicitly
+- Introduced a `keyless` flag in `signImage()` and `validateImage()` to explicitly
   choose pixel-based channel selection or key-based selection (default).
+- `validateImage()` to return a failure report instead of raising errors.
 ### Performance
 Signing time **2.575809s** / Validating time **1.531062s**.
