@@ -3,10 +3,10 @@ from pprint import pprint
 import os
 import time
 import builtins
-from Pixseal import SimpleImage
 
 from pip_package.Pixseal.keyInput import resolve_private_key, resolve_public_key
 from pip_package.Pixseal import signImage, validateImage
+from pip_package.Pixseal import SimpleImage
 
 
 def _choose_backend():
