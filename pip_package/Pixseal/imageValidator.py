@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from .imageSigner import (
     BinaryProvider,
+    _build_channel_key_array,
     addHiddenBit,
     _build_payload_json,
     make_channel_key,
@@ -140,9 +141,12 @@ def readHiddenBit(
                 bit = b & 1
             append_bit("1" if bit else "0")
     else:
+        channel_key_arr = _build_channel_key_array(total, channel_key)
+
         for idx in range(total):
             base = idx * 3
-            channel = _choose_channel(idx, channel_key)
+            # channel = _choose_channel(idx, channel_key)
+            channel = channel_key_arr[idx]
             bit = pixels[base + channel] & 1
             append_bit("1" if bit else "0")
 

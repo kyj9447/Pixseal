@@ -92,6 +92,17 @@ def make_channel_key(public_key: RSAPublicKey) -> bytes:
 
 
 @profile
+def _build_channel_key_array(total: int, channel_key: bytes) -> bytes:
+    if not channel_key:
+        raise ValueError("channel_key must not be empty")
+    if total <= 0:
+        return b""
+    key_mod3 = bytes(b % 3 for b in channel_key)
+    repeats, remainder = divmod(total, len(key_mod3))
+    return (key_mod3 * repeats) + key_mod3[:remainder]
+
+
+@profile
 def _choose_channel(index: int, channel_key: bytes) -> int:
     if not channel_key:
         raise ValueError("channel_key must not be empty")
@@ -158,10 +169,13 @@ def addHiddenBit(
             pixels[base + 2] = b
     else:
         # Keyed channel selection with explicit LSB overwrite.
+        channel_key_arr = _build_channel_key_array(total, channel_key)
+
         for idx in range(total):
             base = idx * 3
             bit = payloadBits[idx] & 1
-            channel = _choose_channel(idx, channel_key)
+            # channel = _choose_channel(idx, channel_key)
+            channel = channel_key_arr[idx]
             offset = base + channel
             pixels[offset] = (pixels[offset] & 0xFE) | bit
 

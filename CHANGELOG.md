@@ -91,3 +91,13 @@ All tests were conducted in the following environment:
 - `validateImage()` to return a failure report instead of raising errors.
 ### Performance
 Signing time **2.575809s** / Validating time **1.531062s**.
+
+
+## [1.1.1]
+
+### Changed
+- Update key-based channel selection to use image-sized repeated key array
+
+### Performance
+- Signing time **2.134768s** (approx. 17% improved)
+- Validating time **1.094935s** (approx. 28% improved)

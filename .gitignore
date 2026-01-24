@@ -3,11 +3,6 @@ __pycache__
 pip_package/Pixseal/simpleImage_ext.*.so
 gen-ca-chain.sh
 signed_original.png
-token-test.txt
-token.txt
-val_fail.txt
-val_success.txt
 testRun.py.lprof
 pyrightconfig.json
-dev/testAlg.py
-dev/algPack.py
+dev
