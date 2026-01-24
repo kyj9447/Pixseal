@@ -1,43 +1,24 @@
 import hashlib
 import json
-from typing import TYPE_CHECKING, Sequence
+from typing import Any, Sequence
 import base64
+import binascii
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from line_profiler import profile
 
 from .imageSigner import (
     BinaryProvider,
-    _build_channel_key_array,
+    build_channel_key_array,
     addHiddenBit,
-    _build_payload_json,
+    build_payload_json,
     make_channel_key,
-    _choose_channel,
 )
 from .keyInput import PublicKeyInput, resolve_public_key
-
-# profiler check
-try:
-    from line_profiler import profile
-except ImportError:
-
-    def profile(func):
-        return func
-
-
-# Dynamic typing
-from .simpleImage import (
-    ImageInput as _RuntimeImageInput,
-    SimpleImage as _RuntimeSimpleImage,
-)
-
-if TYPE_CHECKING:
-    from .simpleImage_py import ImageInput, SimpleImage
-else:
-    ImageInput = _RuntimeImageInput
-    SimpleImage = _RuntimeSimpleImage
+from .simpleImage import ImageInput, SimpleImage
 
 # JSON field names
 PAYLOAD_FIELD: str = "payload"
@@ -50,9 +31,9 @@ START_SENTINEL: str = "START-VALIDATION"
 END_SENTINEL: str = "END-VALIDATION"
 
 # Report print option
-TAIL_HEAD_LEN = 20
-TAIL_SUFFIX_LEN = 10
-FULL_TAIL_EXTRA_LEN = 20
+TAIL_HEAD_LEN: int = 20
+TAIL_SUFFIX_LEN: int = 10
+FULL_TAIL_EXTRA_LEN: int = 20
 
 
 @profile
@@ -61,17 +42,15 @@ def _is_json_like(value: str) -> bool:
 
 
 @profile
-def _extract_payload_json(deduplicated: list[str], ) -> dict:
+def _extract_payload_json(deduplicated: list[str]) -> dict[str, Any]:
     for value in deduplicated:
         if not _is_json_like(value):
             continue
         if not value.rstrip().endswith("}"):
             continue
         try:
-            payload_obj = json.loads(value)
+            payload_obj: dict[str, Any] = json.loads(value)
         except json.JSONDecodeError:
-            continue
-        if not isinstance(payload_obj, dict):
             continue
         if not all(key in payload_obj for key in (
                 PAYLOAD_FIELD,
@@ -85,7 +64,7 @@ def _extract_payload_json(deduplicated: list[str], ) -> dict:
 
 
 @profile
-def binaryToString(bits: list[int]):
+def binaryToString(bits: list[int]) -> str:
     ba = bytearray()
     acc = 0
     count = 0
@@ -106,10 +85,10 @@ def readHiddenBit(
     imageInput: ImageInput,
     channel_key: bytes,
     keyless: bool,
-):
+) -> list[int]:
     img = (imageInput if isinstance(imageInput, SimpleImage) else SimpleImage.open(imageInput))
     width, height = img.size
-    pixels = img._pixels  # direct buffer access for performance
+    pixels: bytearray = img.pixels  # direct buffer access for performance
     total = width * height
     bits: list[int] = []
     append_bit = bits.append
@@ -150,13 +129,13 @@ def readHiddenBit(
                 bit = b & 1
             append_bit(bit)
     else:
-        channel_key_arr = _build_channel_key_array(total, channel_key)
+        channel_key_arr: bytes = build_channel_key_array(total, channel_key)
 
         for idx in range(total):
             base = idx * 3
             # channel = _choose_channel(idx, channel_key)
-            channel = channel_key_arr[idx]
-            bit = pixels[base + channel] & 1
+            channel: int = channel_key_arr[idx]
+            bit: int = pixels[base + channel] & 1
             append_bit(bit)
 
     return bits
@@ -164,8 +143,8 @@ def readHiddenBit(
 
 @profile
 def deduplicate(arr: Sequence[str]) -> tuple[list[str], str]:
-    deduplicated = []
-    freq = {}
+    deduplicated: list[str] = []
+    freq: dict[str, int] = {}
     most_common = ""
     most_count = 0
 
@@ -182,11 +161,11 @@ def deduplicate(arr: Sequence[str]) -> tuple[list[str], str]:
 
 
 # Check functions
-def lengthCheck(arr: list[str]):
+def lengthCheck(arr: list[str]) -> bool:
     return len(arr) in (3, 4)
 
 
-def tailCheck(arr: list[str]):
+def tailCheck(arr: list[str]) -> bool | None:
     if len(arr) != 4:
         return None  # Not required
 
@@ -208,7 +187,7 @@ def verifySigniture(original: str, sig: str, publicKey: RSAPublicKey) -> bool:
             ),
             algorithm=hashes.SHA256(),
         )
-    except InvalidSignature:
+    except (InvalidSignature, ValueError, binascii.Error):
         return False
     return True
 
@@ -272,7 +251,7 @@ def validateImage(
     imageInput: ImageInput,
     publicKey: PublicKeyInput,
     keyless: bool = False,
-):
+) -> dict[str, Any]:
     """
     Extract the embedded payload from an image and optionally decrypt it.
 
@@ -337,7 +316,7 @@ def validateImage(
     image_hash_placeholder = "0" * len(image_hash)
     image_hash_sig_placeholder = "0" * len(image_hash_sig)
 
-    payload_placeholder = _build_payload_json(
+    payload_placeholder = build_payload_json(
         payload_text,
         payload_sig,
         image_hash_placeholder,
@@ -356,7 +335,7 @@ def validateImage(
         channel_key,
         keyless,
     )
-    computed_hash = hashlib.sha256(placeholder_image._pixels).hexdigest()
+    computed_hash = hashlib.sha256(placeholder_image.pixels).hexdigest()
     imageHashCompareCheckResult = image_hash == computed_hash
 
     verdict = all([
@@ -369,7 +348,7 @@ def validateImage(
         imageHashCompareCheckResult,
     ])
 
-    length_report = {
+    length_report: dict[str, int | bool] = {
         "length": len(deduplicated),
         "result": lengthCheckResult,
     }
@@ -395,20 +374,20 @@ def validateImage(
             full_display = full_value[:TAIL_HEAD_LEN] + "..." + snippet
         else:
             full_display = full_value
-        tail_report = {
+        tail_report: dict[str, str | bool | None] = {
             "full": full_display,
             "tail": tail_display,
             "result": tailCheckResult,
         }
     else:
         tail_report = {"result": "Not Required"}
-    hash_report = {
+    hash_report: dict[str, str | bool] = {
         "extractedHash": image_hash,
         "computedHash": computed_hash,
         "result": imageHashCompareCheckResult,
     }
 
-    report = {
+    report: dict[str, Any] = {
         "lengthCheck": length_report,
         "tailCheck": tail_report,
         "startVerify": startVerifyResult,

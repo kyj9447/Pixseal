@@ -1,27 +1,20 @@
 from pathlib import Path
 from pprint import pprint
-import os
+# import os
 import time
 import builtins
+from line_profiler import LineProfiler
+
+# # =================[Choose backend]=================
+# choice = input("Select SimpleImage backend (Enter=cython / 1=cython / 2=python fallback): ").strip().lower()
+# backend = "python" if choice in {"2", "python"} else "cython"
+# os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
+# print(f"[Init] SimpleImage backend set to: {backend}")
+# # =================[Choose backend]=================
 
 from pip_package.Pixseal.keyInput import resolve_private_key, resolve_public_key
 from pip_package.Pixseal import signImage, validateImage
 from pip_package.Pixseal import SimpleImage
-
-
-def _choose_backend():
-    choice = (input("Select SimpleImage backend (Enter=cython / 1=cython / 2=python fallback): ").strip().lower())
-    backend = "python" if choice in {"2", "python"} else "cython"
-    os.environ["PIXSEAL_SIMPLEIMAGE_BACKEND"] = backend
-    print(f"[Init] SimpleImage backend set to: {backend}")
-
-
-_choose_backend()
-
-try:
-    from line_profiler import LineProfiler  # type: ignore
-except ImportError:  # pragma: no cover
-    LineProfiler = None
 
 PRIVATE_KEY_PATH = "assets/CA/pixseal-dev-root.key"
 CERT_PATH = "assets/CA/pixseal-dev-root.crt"
@@ -67,10 +60,10 @@ def memory_roundtrip_demo():
 
 
 def line_profile_demo():
-    if LineProfiler is None:
-        print("line_profiler is not installed. "
-              "Please run `pip install line_profiler` and try again.")
-        return
+    # if LineProfiler is None:
+    #     print("line_profiler is not installed. "
+    #           "Please run `pip install line_profiler` and try again.")
+    #     return
 
     builtin_profiler = getattr(builtins, "profile", None)
     is_kernprof = (builtin_profiler is not None

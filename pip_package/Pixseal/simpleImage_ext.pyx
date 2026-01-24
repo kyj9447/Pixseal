@@ -610,7 +610,7 @@ cdef class SimpleImage:
     # 공개 속성 정의
     cdef public int width
     cdef public int height
-    cdef public bytearray _pixels
+    cdef public bytearray pixels
     cdef public object _alpha
     cdef public object _png_chunks
     cdef public object _png_filters
@@ -634,9 +634,9 @@ cdef class SimpleImage:
         self.height = height
         # 픽셀 버퍼 복사
         if isinstance(pixels, bytearray):
-            self._pixels = bytearray(pixels)
+            self.pixels = bytearray(pixels)
         else:
-            self._pixels = bytearray(pixels)
+            self.pixels = bytearray(pixels)
         # 알파 채널 처리
         if alpha is not None:
             if len(alpha) != width * height:
@@ -716,30 +716,30 @@ cdef class SimpleImage:
         print(f"[SimpleImage] Opened image: {width}x{height}, channels={channels}")
         return image
 
-    def getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:
+    def _getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:
         # 좌표에서 픽셀 값 가져오기
         x, y = coords
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise ValueError("Pixel coordinate out of bounds")
         index = (y * self.width + x) * 3
         return (
-            self._pixels[index],
-            self._pixels[index + 1],
-            self._pixels[index + 2],
+            self.pixels[index],
+            self.pixels[index + 1],
+            self.pixels[index + 2],
         )
 
-    def putPixel(self, coords: Tuple[int, int], value: Sequence[int]) -> None:
+    def _putPixel(self, coords: Tuple[int, int], value: Sequence[int]) -> None:
         # 좌표에 픽셀 값 넣기
         x, y = coords
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise ValueError("Pixel coordinate out of bounds")
         index = (y * self.width + x) * 3
         r, g, b = value
-        self._pixels[index] = int(r) & 0xFF
-        self._pixels[index + 1] = int(g) & 0xFF
-        self._pixels[index + 2] = int(b) & 0xFF
+        self.pixels[index] = int(r) & 0xFF
+        self.pixels[index + 1] = int(g) & 0xFF
+        self.pixels[index + 2] = int(b) & 0xFF
 
-    def copy(self) -> SimpleImage:
+    def _copy(self) -> SimpleImage:
         # 내부 버퍼를 복사해서 새 객체 생성
         cdef object alpha_copy
         cdef object chunk_copy
@@ -763,7 +763,7 @@ cdef class SimpleImage:
         return SimpleImage(
             self.width,
             self.height,
-            self._pixels[:],
+            self.pixels[:],
             alpha_copy,
             chunk_copy,
             bmp_copy,
@@ -777,16 +777,12 @@ cdef class SimpleImage:
                 path,
                 self.width,
                 self.height,
-                self._pixels,
+                self.pixels,
                 self._alpha,
                 self._png_chunks,
                 self._png_filters,
             )
         elif self._bmp_header is not None:
-            _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
+            _writeBmp(path, self.width, self.height, self.pixels, self._bmp_header)
         else:
-            _writePng(path, self.width, self.height, self._pixels, self._alpha, self._png_filters)
-
-    def saveBmp(self, path: str) -> None:
-        # 강제로 BMP로 저장
-        _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
+            _writePng(path, self.width, self.height, self.pixels, self._alpha, self._png_filters)

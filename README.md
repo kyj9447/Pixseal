@@ -48,7 +48,7 @@ Pixseal prioritizes tamper sensitivity over robustness against intentional adver
 
 - **Fully Local & Offline**
   - No external servers or network dependencies
-  - Pure Python implementation
+  - Cython-accelerated core with a Python fallback
 
 - **Lossless Format Support**
   - Supports PNG and BMP (24-bit) images
@@ -218,12 +218,26 @@ Validation Report
   - `result` : True when extractedHash and computedHash are identical
 - `verdict` : True when all validation checks pass.
 
+### Failure output
+
+When extraction or payload parsing fails, `validateImage()` returns a minimal
+report with failure details:
+
+```
+{
+  "status": "Failed",
+  "error": "Reason string",
+  "verdict": false
+}
+```
+
 ## CLI demo script
 
-`python testRun.py` offers an interactive flow:
+`python testRun.py` offers an interactive flow.
 
-Before the menu, it prompts for the SimpleImage backend
-(Enter/1=cython, 2=python fallback) and sets `PIXSEAL_SIMPLEIMAGE_BACKEND`.
+Backend selection uses the current
+`PIXSEAL_SIMPLEIMAGE_BACKEND` value if set, otherwise the default `auto`
+behavior (Cython preferred, Python fallback).
 
 1. Choose **1** to sign an image. It reads `assets/original.png` and writes `assets/signed_original.png`.
 2. Choose **2** to validate. It reads `assets/signed_original.png` and prints the validation report.
@@ -243,7 +257,7 @@ option will display an informative message instead of running.
 
 | Function | Description |
 | --- | --- |
-| `signImage(imageInput, payload, private_key, keyless=False)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `payload` plus sentinels, and signs the payload/hash using the RSA private key. Returns a `SimpleImage` that you can `save()` or `saveBmp()`. |
+| `signImage(imageInput, payload, private_key, keyless=False)` | Loads a PNG/BMP from a filesystem path or raw bytes, injects `payload` plus sentinels, and signs the payload/hash using the RSA private key. Returns a `SimpleImage` that you can `save()`. |
 | `validateImage(imageInput, publicKey, keyless=False)` | Reads the hidden bit stream from a path or raw bytes, rebuilds the payload JSON, verifies signatures and the computed image hash, and returns a validation report. Accepts RSA public keys or X.509 certificates. |
 
 ## Examples

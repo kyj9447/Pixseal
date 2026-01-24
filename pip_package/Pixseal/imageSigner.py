@@ -1,57 +1,41 @@
 import base64
 import hashlib
 import json
-from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from line_profiler import profile
 
 from .keyInput import PrivateKeyInput, resolve_private_key
-
-# profiler check
-try:
-    from line_profiler import profile
-except ImportError:
-
-    def profile(func):
-        return func
-
-
-# Dynamic typing
-from .simpleImage import (
-    ImageInput as _RuntimeImageInput,
-    SimpleImage as _RuntimeSimpleImage,
-)
-
-if TYPE_CHECKING:
-    from .simpleImage_py import ImageInput, SimpleImage
-else:
-    ImageInput = _RuntimeImageInput
-    SimpleImage = _RuntimeSimpleImage
+from .simpleImage import ImageInput, SimpleImage
 
 
 class BinaryProvider:
+    hiddenBits: list[int]
+    startBits: list[int]
+    endBits: list[int]
+
     # Constructor
     def __init__(
         self,
-        payload,
-        startString="START-VALIDATION\n",
-        endString="\nEND-VALIDATION",
-    ):
+        payload: str,
+        startString: str = "START-VALIDATION\n",
+        endString: str = "\nEND-VALIDATION",
+    ) -> None:
         self.hiddenBits = self._stringToBits(payload)
         self.startBits = self._stringToBits(startString)
         self.endBits = self._stringToBits(endString)
 
     # Convert string to contiguous binary digits
-    def _stringToBits(self, string):
-        bits = []
+    def _stringToBits(self, string: str) -> list[int]:
+        bits: list[int] = []
         for char in string:
             binary = format(ord(char), "08b")
             bits.extend(int(bit) for bit in binary)
         return bits
 
-    def _expandPayload(self, count: int):
+    def _expandPayload(self, count: int) -> list[int]:
         if count <= 0:
             return []
         payloadLen = len(self.hiddenBits)
@@ -60,7 +44,7 @@ class BinaryProvider:
         repeats, remainder = divmod(count, payloadLen)
         return (self.hiddenBits * repeats) + self.hiddenBits[:remainder]
 
-    def buildBitArray(self, pixelCount: int):
+    def buildBitArray(self, pixelCount: int) -> list[int]:
         startLen = len(self.startBits)
         endLen = len(self.endBits)
         if pixelCount < startLen + endLen:
@@ -93,7 +77,7 @@ def make_channel_key(public_key: RSAPublicKey) -> bytes:
 
 
 @profile
-def _build_channel_key_array(total: int, channel_key: bytes) -> bytes:
+def build_channel_key_array(total: int, channel_key: bytes) -> bytes:
     if not channel_key:
         raise ValueError("channel_key must not be empty")
     if total <= 0:
@@ -103,11 +87,11 @@ def _build_channel_key_array(total: int, channel_key: bytes) -> bytes:
     return (key_mod3 * repeats) + key_mod3[:remainder]
 
 
-@profile
-def _choose_channel(index: int, channel_key: bytes) -> int:
-    if not channel_key:
-        raise ValueError("channel_key must not be empty")
-    return channel_key[index % len(channel_key)] % 3
+# @profile
+# def _choose_channel(index: int, channel_key: bytes) -> int:
+#     if not channel_key:
+#         raise ValueError("channel_key must not be empty")
+#     return channel_key[index % len(channel_key)] % 3
 
 
 @profile
@@ -116,10 +100,10 @@ def addHiddenBit(
     hiddenBinary: BinaryProvider,
     channel_key: bytes,
     keyless: bool,
-):
+) -> SimpleImage:
     img = SimpleImage.open(imageInput)
     width, height = img.size
-    pixels = img._pixels  # direct buffer access for performance
+    pixels = img.pixels  # direct buffer access for performance
     total = width * height
     payloadBits = hiddenBinary.buildBitArray(total)
 
@@ -170,7 +154,7 @@ def addHiddenBit(
             pixels[base + 2] = b
     else:
         # Keyed channel selection with explicit LSB overwrite.
-        channel_key_arr = _build_channel_key_array(total, channel_key)
+        channel_key_arr = build_channel_key_array(total, channel_key)
 
         for idx in range(total):
             base = idx * 3
@@ -205,7 +189,7 @@ def make_image_hash_placeholder() -> str:
     Generate a placeholder string for the SHA256 image hash (hex length).
     """
     hash_hex_len = len(hashlib.sha256().hexdigest())
-    print("hash_hex_len = ", hash_hex_len)
+    # print("hash_hex_len = ", hash_hex_len)
     return "0" * hash_hex_len
 
 
@@ -216,21 +200,21 @@ def make_hash_signature_placeholder(private_key: RSAPrivateKey) -> str:
     """
     key_bytes = (private_key.key_size + 7) // 8
     signature_b64_len = len(base64.b64encode(b"\x00" * key_bytes))
-    print("signature_b64_len = ", signature_b64_len)
+    # print("signature_b64_len = ", signature_b64_len)
     return "0" * signature_b64_len
 
 
 # JSON field names
-PAYLOAD_FIELD = "payload"
-PAYLOAD_SIG_FIELD = "payloadSig"
-IMAGE_HASH_FIELD = "imageHash"
-IMAGE_HASH_SIG_FIELD = "imageHashSig"
+PAYLOAD_FIELD: str = "payload"
+PAYLOAD_SIG_FIELD: str = "payloadSig"
+IMAGE_HASH_FIELD: str = "imageHash"
+IMAGE_HASH_SIG_FIELD: str = "imageHashSig"
 
 
 # Helper function for building the JSON payload
 @profile
-def _build_payload_json(
-    payload: str | None,
+def build_payload_json(
+    payload: str,
     payload_sig: str,
     image_hash: str,
     image_hash_sig: str,
@@ -253,7 +237,7 @@ def signImage(
     payload: str,
     private_key: PrivateKeyInput,
     keyless: bool = False,
-):
+) -> SimpleImage:
     """
     Embed a payload into an image using the parity-based steganography scheme.
 
@@ -280,7 +264,7 @@ def signImage(
     image_hash_placeholder = make_image_hash_placeholder()
     image_hash_sig_placeholder = make_hash_signature_placeholder(private_key)
 
-    payload_with_placeholder = _build_payload_json(
+    payload_with_placeholder = build_payload_json(
         payload_text,
         payload_sig,
         image_hash_placeholder,
@@ -308,7 +292,7 @@ def signImage(
     )
 
     # Calculate the image hash and sign it
-    image_hash = hashlib.sha256(image_with_placeholder._pixels).hexdigest()
+    image_hash = hashlib.sha256(image_with_placeholder.pixels).hexdigest()
     if len(image_hash) != len(image_hash_placeholder):
         raise ValueError(
             "Signed hash length mismatch with placeholder",
@@ -326,7 +310,7 @@ def signImage(
         )
 
     # Prepare the final payload with the calculated hash
-    payload_final = _build_payload_json(
+    payload_final = build_payload_json(
         payload_text,
         payload_sig,
         image_hash,

@@ -11,10 +11,10 @@ from io import BytesIO
 from pathlib import Path
 
 # 타입 힌트 정의
-from typing import Iterable, List, Optional, Sequence, Tuple, Union
+from typing import BinaryIO, Iterable, List, Optional, Sequence, Tuple, TypeAlias, Union
 
 # PNG 파일 시그니처(매직 넘버)
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_SIGNATURE: bytes = b"\x89PNG\r\n\x1a\n"
 
 
 # PNG 필터에서 Paeth 예측값을 계산한다.
@@ -38,9 +38,7 @@ def _paethPredictor(a: int, b: int, c: int) -> int:
 # PNG 필터 타입에 따라 한 줄(스캔라인)을 복원한다.
 # PNG는 각 스캔라인 앞에 "필터 타입 1바이트"가 붙고,
 # 필터가 적용된 바이트를 원본으로 되돌리는 과정이 필요하다.
-def _applyPngFilter(
-    filterType: int, rowData: bytearray, prevRow: Sequence[int], bytesPerPixel: int
-) -> bytearray:
+def _applyPngFilter(filterType: int, rowData: bytearray, prevRow: Sequence[int], bytesPerPixel: int) -> bytearray:
     # 복원된 결과를 담을 버퍼
     recon = bytearray(len(rowData))
     # 각 바이트를 순회하며 필터 해제
@@ -74,9 +72,7 @@ def _applyPngFilter(
     return recon
 
 
-def _encodePngFilter(
-    filterType: int, rowData: Sequence[int], prevRow: Sequence[int], bytesPerPixel: int
-) -> bytearray:
+def _encodePngFilter(filterType: int, rowData: Sequence[int], prevRow: Sequence[int], bytesPerPixel: int) -> bytearray:
     if filterType == 0:
         return bytearray(rowData)
     filtered = bytearray(len(rowData))
@@ -100,7 +96,7 @@ def _encodePngFilter(
 # PNG의 하나의 청크(type+data+crc)를 읽는다.
 # PNG는 [length(4)][type(4)][data(length)][crc(4)] 구조로 반복된다.
 # length는 data 길이만 의미하며, type/CRC는 포함하지 않는다.
-def _readChunk(stream) -> Tuple[bytes, bytes]:
+def _readChunk(stream: BinaryIO) -> Tuple[bytes, bytes]:
     # 길이(4바이트)를 읽는다.
     lengthBytes = stream.read(4)
     if len(lengthBytes) == 0:
@@ -138,16 +134,16 @@ def _readChunk(stream) -> Tuple[bytes, bytes]:
 # 3) 모든 IDAT를 모아 zlib로 압축 해제
 # 4) 스캔라인별 필터 해제 후 RGB(A) 버퍼로 복원
 def _loadPng(
-    stream,
+    stream: BinaryIO,
 ) -> Tuple[
-    int,
-    int,
-    bytearray,
-    int,
-    Optional[bytearray],
-    List[Tuple[bytes, Optional[bytes], int]],
-    Optional[dict],
-    Optional[bytearray],
+        int,
+        int,
+        bytearray,
+        int,
+        Optional[bytearray],
+        List[Tuple[bytes, Optional[bytes], int]],
+        Optional[dict[str, int]],
+        Optional[bytearray],
 ]:
     # 파일 시그니처 확인(8바이트 고정)
     signature = stream.read(8)
@@ -155,8 +151,8 @@ def _loadPng(
         raise ValueError("Unsupported PNG signature")
 
     # IHDR에서 읽을 값들을 초기화
-    width : int = 0
-    height : int = 0
+    width: int = 0
+    height: int = 0
     bitDepth = colorType = None
     compression = filterMethod = interlace = None
     # IDAT 데이터 목록
@@ -193,13 +189,13 @@ def _loadPng(
 
     # 필수 헤더 값이 모두 있는지 확인
     if None in (
-        width,
-        height,
-        bitDepth,
-        colorType,
-        compression,
-        filterMethod,
-        interlace,
+            width,
+            height,
+            bitDepth,
+            colorType,
+            compression,
+            filterMethod,
+            interlace,
     ):
         raise ValueError("Incomplete PNG header information")
     # 지원되는 포맷인지 확인
@@ -239,7 +235,7 @@ def _loadPng(
         offset += 1
         filter_types[y] = filterType
         # 현재 줄 데이터 추출
-        rowBytes = bytearray(rawImage[offset : offset + rowLength])
+        rowBytes = bytearray(rawImage[offset:offset + rowLength])
         offset += rowLength
         # 필터 해제: 현재 줄 + 이전 줄 정보를 이용해 복원
         recon = _applyPngFilter(filterType, rowBytes, prevRow, bytesPerPixel)
@@ -388,7 +384,7 @@ def _split_idat_payload(data: bytes, target_lengths: Iterable[int]) -> List[byte
             take = min(length, total - offset)
         if take <= 0:
             continue
-        parts.append(data[offset : offset + take])
+        parts.append(data[offset:offset + take])
         offset += take
     # 남은 데이터가 있으면 추가
     if offset < total:
@@ -429,7 +425,7 @@ def _writePngWithChunks(
     parts = _split_idat_payload(compressed, idat_lengths) or [compressed]
 
     # 청크를 쓰는 헬퍼 함수
-    def write_chunk(output, chunkType: bytes, payload: bytes) -> None:
+    def write_chunk(output: BinaryIO, chunkType: bytes, payload: bytes) -> None:
         output.write(len(payload).to_bytes(4, "big"))
         output.write(chunkType)
         output.write(payload)
@@ -459,23 +455,23 @@ def _writePngWithChunks(
 
 # BMP 스트림에서 이미지 정보를 로드한다.
 def _loadBmp(
-    stream,
+    stream: BinaryIO,
 ) -> Tuple[
-    int,
-    int,
-    bytearray,
-    int,
-    Optional[bytearray],
-    Optional[List[Tuple[bytes, Optional[bytes], int]]],
-    Optional[dict],
-    Optional[bytearray],
+        int,
+        int,
+        bytearray,
+        int,
+        Optional[bytearray],
+        Optional[List[Tuple[bytes, Optional[bytes], int]]],
+        Optional[dict[str, int]],
+        Optional[bytearray],
 ]:
     # BMP 파일 헤더(14바이트) 읽기
     header = stream.read(14)
     if len(header) != 14 or header[:2] != b"BM":
         raise ValueError("Unsupported BMP header")
     # 파일 크기와 픽셀 데이터 위치
-    fileSize, _, _, pixelOffset = struct.unpack("<IHHI", header[2:])
+    _, _, _, pixelOffset = struct.unpack("<IHHI", header[2:])
     # DIB 헤더 크기 읽기
     dibHeaderSizeBytes = stream.read(4)
     if len(dibHeaderSizeBytes) != 4:
@@ -491,7 +487,6 @@ def _loadBmp(
         planes,
         bitCount,
         compression,
-        imageSize,
         xPpm,
         yPpm,
         clrUsed,
@@ -540,7 +535,7 @@ def _writeBmp(
     width: int,
     height: int,
     pixels: Sequence[int],
-    meta: Optional[dict] = None,
+    meta: Optional[dict[str, int]] = None,
 ) -> None:
     # 한 줄을 4바이트 정렬로 계산
     rowStride = ((width * 3 + 3) // 4) * 4
@@ -569,8 +564,7 @@ def _writeBmp(
                 yppm,
                 clrUsed,
                 clrImportant,
-            )
-        )
+            ))
         # 한 줄 패딩 바이트 계산
         rowPad = rowStride - width * 3
         padBytes = b"\x00" * rowPad
@@ -589,7 +583,7 @@ def _writeBmp(
 
 
 # 이미지 입력 타입 정의(파일 경로 또는 바이트)
-ImageInput = Union[str, Path, bytes, bytearray, "SimpleImage"]
+ImageInput: TypeAlias = Union[str, Path, bytes, bytearray, "SimpleImage"]
 
 
 class SimpleImage:
@@ -597,7 +591,7 @@ class SimpleImage:
     __slots__ = (
         "width",
         "height",
-        "_pixels",
+        "pixels",
         "_alpha",
         "_png_chunks",
         "_png_filters",
@@ -611,9 +605,9 @@ class SimpleImage:
         pixels: Sequence[int],
         alpha: Optional[Sequence[int]] = None,
         png_chunks: Optional[List[Tuple[bytes, Optional[bytes], int]]] = None,
-        bmp_header: Optional[dict] = None,
+        bmp_header: Optional[dict[str, int]] = None,
         png_filters: Optional[Sequence[int]] = None,
-    ):
+    ) -> None:
         # 이미지 크기 설정
         self.width = width
         self.height = height
@@ -621,7 +615,7 @@ class SimpleImage:
         expected = width * height * 3
         if len(pixels) != expected:
             raise ValueError("Pixel data length does not match image dimensions")
-        self._pixels = bytearray(pixels)
+        self.pixels = bytearray(pixels)
         # 알파 채널 처리
         if alpha is not None:
             if len(alpha) != width * height:
@@ -647,16 +641,16 @@ class SimpleImage:
 
     @staticmethod
     def _streamToImage(
-        stream,
+        stream: BinaryIO,
     ) -> Tuple[
-        int,
-        int,
-        bytearray,
-        int,
-        Optional[bytearray],
-        Optional[List[Tuple[bytes, Optional[bytes], int]]],
-        Optional[dict],
-        Optional[bytearray],
+            int,
+            int,
+            bytearray,
+            int,
+            Optional[bytearray],
+            Optional[List[Tuple[bytes, Optional[bytes], int]]],
+            Optional[dict[str, int]],
+            Optional[bytearray],
     ]:
         # 시그니처로 포맷 판별
         signature = stream.read(8)
@@ -703,30 +697,30 @@ class SimpleImage:
         print(f"[SimpleImage] Opened image: {width}x{height}, channels={channels}")
         return image
 
-    def getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:
+    def _getPixel(self, coords: Tuple[int, int]) -> Tuple[int, int, int]:
         # 좌표에서 픽셀 값 가져오기
         x, y = coords
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise ValueError("Pixel coordinate out of bounds")
         index = (y * self.width + x) * 3
         return (
-            self._pixels[index],
-            self._pixels[index + 1],
-            self._pixels[index + 2],
+            self.pixels[index],
+            self.pixels[index + 1],
+            self.pixels[index + 2],
         )
 
-    def putPixel(self, coords: Tuple[int, int], value: Sequence[int]) -> None:
+    def _putPixel(self, coords: Tuple[int, int], value: Sequence[int]) -> None:
         # 좌표에 픽셀 값 넣기
         x, y = coords
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise ValueError("Pixel coordinate out of bounds")
         index = (y * self.width + x) * 3
         r, g, b = value
-        self._pixels[index] = int(r) & 0xFF
-        self._pixels[index + 1] = int(g) & 0xFF
-        self._pixels[index + 2] = int(b) & 0xFF
+        self.pixels[index] = int(r) & 0xFF
+        self.pixels[index + 1] = int(g) & 0xFF
+        self.pixels[index + 2] = int(b) & 0xFF
 
-    def copy(self) -> "SimpleImage":
+    def _copy(self) -> "SimpleImage":
         # 내부 버퍼를 복사해서 새 객체 생성
         alpha_copy = self._alpha[:] if self._alpha is not None else None
         png_chunks = self._png_chunks[:] if self._png_chunks is not None else None
@@ -735,7 +729,7 @@ class SimpleImage:
         return SimpleImage(
             self.width,
             self.height,
-            self._pixels[:],
+            self.pixels[:],
             alpha_copy,
             png_chunks,
             bmp_header,
@@ -749,23 +743,19 @@ class SimpleImage:
                 path,
                 self.width,
                 self.height,
-                self._pixels,
+                self.pixels,
                 self._alpha,
                 self._png_chunks,
                 self._png_filters,
             )
         elif self._bmp_header is not None:
-            _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
+            _writeBmp(path, self.width, self.height, self.pixels, self._bmp_header)
         else:
             _writePng(
                 path,
                 self.width,
                 self.height,
-                self._pixels,
+                self.pixels,
                 self._alpha,
                 self._png_filters,
             )
-
-    def saveBmp(self, path: str) -> None:
-        # 강제로 BMP로 저장
-        _writeBmp(path, self.width, self.height, self._pixels, self._bmp_header)
