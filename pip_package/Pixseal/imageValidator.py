@@ -291,7 +291,7 @@ def validateImage(
         # raise ValueError("json extraction from payload failed!")
         return {
             "status": "Failed",
-            "error": "JSON extraction from payload failed!",
+            "error": "JSON extraction from payload failed",
             "verdict": False,
         }
     payload_text = payload_obj[PAYLOAD_FIELD]

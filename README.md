@@ -2,6 +2,8 @@
 <img src="https://raw.githubusercontent.com/kyj9447/Pixseal/main/assets/logo/Pixseal.png" width="200px"/>
 </p>
 
+[한국어 README](https://github.com/kyj9447/Pixseal/blob/main/README_KR.md)
+
 # Pixseal
 ### Prove what you published — and what you didn’t.
 Pixseal is a Python-based **image integrity and authenticity verification tool**
@@ -15,9 +17,9 @@ Pixseal signs the payload and image hash with an RSA private key. Verification u
 the matching RSA public key or an X.509 certificate that contains it.
 
 Pixseal is not a visual watermarking or branding tool.
-The watermark exists solely as a **means to achieve strict, deterministic image
-tamper detection**.
-Pixseal prioritizes tamper sensitivity over robustness against intentional adversarial manipulation.
+The watermark exists solely for **tamper detection**.
+Pixseal prioritizes accurate tamper detection (sensitivity) over robustness
+against intentional adversarial manipulation.
 
 - GitHub: https://github.com/kyj9447/Pixseal
 - Changelog: https://github.com/kyj9447/Pixseal/blob/main/CHANGELOG.md
@@ -52,7 +54,7 @@ Pixseal prioritizes tamper sensitivity over robustness against intentional adver
 
 - **Lossless Format Support**
   - Supports PNG and BMP (24-bit) images
-  - Lossy formats (e.g., JPEG, WebP) are intentionally excluded to preserve integrity guarantees
+  - Lossy formats (e.g., JPEG, WebP) are excluded because they are incompatible with strict integrity guarantees
 
 ## Installation
 
@@ -100,7 +102,7 @@ signed = signImage(
 signed.save("assets/signed_original.png")
 ```
 
-- The payload is looped if it runs out before the image ends, so even small files carry the full sentinel/payload/end pattern.
+The payload is repeated until the image ends, even if it is shorter than the image.
 
 ### Validate a signed image
 
@@ -137,16 +139,18 @@ the calling application.
 
 ## Channel selection mode
 
-Both `signImage()` and `validateImage()` accept a `keyless` flag.
+Channel selection decides which of the three RGB channels in a pixel is used for
+reading and writing. Both `signImage()` and `validateImage()` accept a `keyless` flag.
 
 - `keyless=False` (default): key-based channel selection using raw public-key bytes.
 - `keyless=True`: pixel-based channel selection.
 
-Keyless mode is provided as an option and differs in extractability:
+Keyless mode differs in extractability:
 
-1. Keyless-signed images: payload extraction is possible without a key; but verification fails.
-2. Key-based-signed images: without the key, Pixseal cannot even recognize that
-   it was applied, and extraction is impossible; verification fails too.
+1. Key-based-signed images: without the key, Pixseal cannot even recognize that
+   it was applied; extraction is impossible and verification fails.
+2. Keyless-signed images: payload extraction is possible without a key, but
+   verification fails.
 
 ## Payload structure
 
@@ -174,19 +178,14 @@ Pixseal writes the following newline-delimited sequence into the image:
 <START-VALIDATION signature>
 <payload JSON>
 <payload JSON>
-<payload JSON>
-<payload JSON>
-...(Repeated until it fills the entire image)...
-<payload JSON>   # truncated tail (prefix of payload JSON)
+...(Repeated until the end of the image)...
+<payload JSON>   # truncated tail
 <END-VALIDATION signature>
 ```
 
 During extraction, Pixseal deduplicates the sequence and typically returns four
 lines in order: start signature, full payload JSON, truncated payload prefix,
-and end signature. 
-
-For a valid image, deduplication results in four extracted
-lines. 
+and end signature.
 
 ```
 <START-VALIDATION signature>
@@ -194,29 +193,30 @@ lines.
 <payload JSON>   # truncated tail
 <END-VALIDATION signature>
 ```
-<sub>※ In rare edge cases, the truncated payload prefix may be absent, in which
-case only three lines are returned.</sub>
+
+<sub>In rare cases, the truncated payload prefix may be absent, and only three lines
+are returned.</sub>
 
 ## Validation output
 
 Validation Report
 
 - `lengthCheck`
-  - `length` : Length of deduplication result array.
-  - `result` : True for 4 or 3 (valid deduplication cases).
+  - `length` : Length of the deduplicated array
+  - `result` : True when the length is 3 or 4
 - `tailCheck`
-  - `full` : Full payload intact. (output truncated)
-  - `tail` : Truncated payload intact. (output truncated)
-  - `result` : True when the full and truncated payload portions match.
-- `startVerify` : Verification result of the first SIG against "START-VALIDATION"
-- `endtVerify` : Verification result of the last SIG against "END-VALIDATION"
-- `payloadVerify` : Verification result of the "payload" against "payloadSig"
-- `imageHashVerify` : Verification result of the "imageHash" against "imageHashSig"
+  - `full` : Full payload segment
+  - `tail` : Truncated payload segment
+  - `result` : True when full and tail match
+- `startVerify` : Verification of the first signature against "START-VALIDATION"
+- `endtVerify` : Verification of the last signature against "END-VALIDATION"
+- `payloadVerify` : Verification of `payloadSig` against `payload`
+- `imageHashVerify` : Verification of `imageHashSig` against `imageHash`
 - `imageHashCompareCheck`
-  - `extractedHash` : Value of "imageHash" from extracted payload
+  - `extractedHash` : `imageHash` value from the extracted payload
   - `computedHash` : Image hash computed directly from the image
   - `result` : True when extractedHash and computedHash are identical
-- `verdict` : True when all validation checks pass.
+- `verdict` : Overall verdict (False if any check fails)
 
 ### Failure output
 
@@ -230,6 +230,11 @@ report with failure details:
   "verdict": false
 }
 ```
+
+Error types:
+- "Deduplication failed": newline or delimiter corruption prevents deduplication
+- "JSON extraction from payload failed": failed to parse object from extracted JSON
+- "Essenstial values in JSON are missing": required values are missing from the extracted JSON
 
 ## CLI demo script
 
@@ -246,7 +251,7 @@ behavior (Cython preferred, Python fallback).
 5. Choose **5** to benchmark performance in keyless mode.
 6. Choose **6** to test signing and validation using in-memory bytes.
 7. Choose **7** to run the optional line-profiler demo.
-8. Choose **8** to run validation multi-pass tests.
+8. Choose **8** to run validation multi-pass tests (placeholder -> payload -> placeholder injection cycles).
 
 Option **7** requires the optional dependency `line_profiler` and must be run via
 `kernprof -l testRun.py` so that `builtins.profile` is provided. Without
