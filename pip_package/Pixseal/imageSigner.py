@@ -96,12 +96,13 @@ def build_channel_key_array(total: int, channel_key: bytes) -> bytes:
 
 @profile
 def addHiddenBit(
-    imageInput: ImageInput,
+    imageInput: SimpleImage,
     hiddenBinary: BinaryProvider,
     channel_key: bytes,
     keyless: bool,
 ) -> SimpleImage:
-    img = SimpleImage.open(imageInput)
+    img = imageInput if isinstance(imageInput, SimpleImage) else SimpleImage.open(imageInput)
+
     width, height = img.size
     pixels = img.pixels  # direct buffer access for performance
     total = width * height
@@ -228,6 +229,49 @@ def build_payload_json(
 
     return json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=True)
 
+def calculate_min_required_bits(
+    payload: str,
+    private_key: RSAPrivateKey,
+) -> int:
+    """
+    Calculate minimum required bits:
+    start sentinel + single payload + end sentinel
+    """
+
+    # payload 구성 (signImage과 동일하게)
+    payload_sig = stringSigner(payload, private_key)
+    image_hash_placeholder = make_image_hash_placeholder()
+    image_hash_sig_placeholder = make_hash_signature_placeholder(private_key)
+
+    payload_with_placeholder = build_payload_json(
+        payload,
+        payload_sig,
+        image_hash_placeholder,
+        image_hash_sig_placeholder,
+    )
+
+    # start / end marker
+    start_marker_sig = stringSigner("START-VALIDATION", private_key)
+    end_marker_sig = stringSigner("END-VALIDATION", private_key)
+
+    start_string = start_marker_sig + "\n"
+    end_string = "\n" + end_marker_sig
+
+    # BinaryProvider 생성
+    provider = BinaryProvider(
+        payload=payload_with_placeholder + "\n",
+        startString=start_string,
+        endString=end_string,
+    )
+
+    # 핵심: payload는 1회만
+    required_bits = (
+        len(provider.startBits)
+        + len(provider.hiddenBits)
+        + len(provider.endBits)
+    )
+
+    return required_bits
 
 # main
 # Image input (path or bytes) + payload string => returns image with embedded payload
@@ -259,6 +303,25 @@ def signImage(
         raise TypeError("payload must be a non-empty string")
 
     private_key = resolve_private_key(private_key)
+
+    # ================================
+    # Capacity Check
+    # ================================
+    image = SimpleImage.open(imageInput)
+    width, height = image.size
+    capacity_bits = width * height
+
+    required_bits = calculate_min_required_bits(payload, private_key)
+
+    if capacity_bits < required_bits:
+        raise ValueError(
+            f"Image capacity is insufficient for payload\n"
+            f"capacity_bits={capacity_bits}\n"
+            f"required_bits={required_bits}\n"
+            f"margin={capacity_bits - required_bits}"
+        )
+    # ================================
+
     payload_text = payload
     payload_sig = stringSigner(payload_text, private_key)
     image_hash_placeholder = make_image_hash_placeholder()
@@ -285,7 +348,7 @@ def signImage(
         endString=end_string,
     )
     image_with_placeholder = addHiddenBit(
-        imageInput,
+        image,
         placeholder_binary,
         channel_key,
         keyless,
@@ -325,7 +388,7 @@ def signImage(
 
     # Final injection: final payload
     signedImage = addHiddenBit(
-        imageInput,
+        image,
         hiddenBinary,
         channel_key,
         keyless,
