@@ -21,7 +21,7 @@ CERT_PATH = "assets/CA/pixseal-dev-root.crt"
 DEFAULT_PAYLOAD = "AutoTest123!"
 INPUT_IMAGE = "assets/original.png"
 CURRUPTED_IMAGE = "assets/currupted_signed_original.png"
-OUTPUT_IMAGE = "signed_original.png"
+OUTPUT_IMAGE = "assets/signed_original.png"
 
 PRIVATE_KEY = resolve_private_key(PRIVATE_KEY_PATH)
 PUBLIC_KEY = resolve_public_key(CERT_PATH)
@@ -40,8 +40,8 @@ def validate_demo(keyless: bool = False):
     pprint(result, sort_dicts=False)
 
 
-def validate_fail_demo(keyless: bool = False):
-    result = validateImage(CURRUPTED_IMAGE, PUBLIC_KEY, keyless)
+def validate_fail_demo(image_path: str, keyless: bool = False):
+    result = validateImage(image_path, PUBLIC_KEY, keyless)
     print("\nValidation Report\n")
     pprint(result, sort_dicts=False)
 
@@ -115,17 +115,36 @@ def multi_pass_test(passes: int = 3):
 
     print(f"[MultiPass] overall={all_ok}")
 
+def select_png_from_assets():
+    assets_path = Path("assets")
+    png_files = list(assets_path.glob("*.png"))
 
+    if not png_files:
+        print("[Error] No .png files found in assets/")
+        return None
+
+    print("\nSelect PNG file:\n")
+    for idx, file in enumerate(png_files, start=1):
+        print(f"{idx}: {file.name}")
+
+    choice = input(">> ").strip()
+
+    try:
+        idx = int(choice) - 1
+        return str(png_files[idx])
+    except:
+        print("[Error] Invalid selection")
+        return None
+    
 def main():
     choice = input("""
 1: Sign Image
-2: Validate Image
-3: Validate Image (Fail Test)
-4: Auto Benchmark
-5: Auto Benchmark (Key Less)
-6: Memory API Test
-7: Line Profiler
-8: Validation Multi Pass Test
+2: Validate Image (Select PNG)
+3: Auto Benchmark
+4: Auto Benchmark (Key Less)
+5: Memory API Test
+6: Line Profiler
+7: Validation Multi Pass Test
 >> 
 """).strip()
 
@@ -133,12 +152,9 @@ def main():
         sign_demo()
 
     elif choice == "2":
-        validate_demo()
+        validate_fail_demo(select_png_from_assets())
 
     elif choice == "3":
-        validate_fail_demo()
-
-    elif choice == "4":
         print("Payload " + DEFAULT_PAYLOAD + " will be injected\n")
         start = time.time()
 
@@ -152,7 +168,7 @@ def main():
 
         print(f"Total time: {check2 - start:.6f} seconds\n")
 
-    elif choice == "5":
+    elif choice == "4":
         print("Payload " + DEFAULT_PAYLOAD + " will be injected/ without Key based Channel Selector\n")
         start = time.time()
 
@@ -166,13 +182,13 @@ def main():
 
         print(f"Total time: {check2 - start:.6f} seconds\n")
 
-    elif choice == "6":
+    elif choice == "5":
         memory_roundtrip_demo()
 
-    elif choice == "7":
+    elif choice == "6":
         line_profile_demo()
 
-    elif choice == "8":
+    elif choice == "7":
         multi_pass_test(passes=3)
 
     else:
