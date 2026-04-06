@@ -101,3 +101,12 @@ Signing time **2.575809s** / Validating time **1.531062s**.
 ### Performance
 - Signing time **2.134768s** (approx. 17% improved)
 - Validating time **1.094935s** (approx. 28% improved)
+
+## [1.1.2]
+
+### Added
+- **Minimum image capacity validation** - `signImage()` now checks whether the target image has enough capacity for the signed payload and sentinels before embedding. If the image is too small, it raises a clear `ValueError` with capacity details.
+
+### Changed
+- Documentation updated to clarify channel selection behavior, validation failure output, and CLI demo usage.
+- Added a Korean README link and updated the demo validation flow to support selecting PNG assets directly from `assets/`.
